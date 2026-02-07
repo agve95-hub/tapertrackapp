@@ -1,7 +1,7 @@
 <?php
 /**
  * BACKEND API FOR TAPERTRACK
- * V6.0 - MySQLi Native Driver
+ * V7.0 - New Credentials Configuration
  */
 
 // 1. SETUP & HEADERS
@@ -18,18 +18,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
     exit();
 }
 
-// 2. CREDENTIALS
-$DB_HOST = 'localhost'; // Standard for Hostinger
-$DB_USER = 'u321644199_agon.v';
-$DB_PASS = '07022026Agon';
-$DB_NAME = 'u321644199_taper';
+// 2. CREDENTIALS (NEW)
+// Please create this exact database and user in your Hostinger Dashboard
+$DB_HOST = 'localhost'; 
+$DB_USER = 'u321644199_admin';
+$DB_PASS = 'Taper2025!Secure';
+$DB_NAME = 'u321644199_tracker';
 
 // 3. CONNECTION (MySQLi Object-Oriented)
 $mysqli = new mysqli($DB_HOST, $DB_USER, $DB_PASS, $DB_NAME);
 
-// Fallback to TCP if Socket fails
+// Fallback to TCP (127.0.0.1) if Socket ('localhost') fails
 if ($mysqli->connect_error) {
-    error_log("Socket failed: " . $mysqli->connect_error);
+    // Try TCP/IP fallback
     $mysqli = new mysqli("127.0.0.1", $DB_USER, $DB_PASS, $DB_NAME, 3306);
 }
 
@@ -39,6 +40,7 @@ function sendJson($status, $message, $data = null, $debug = null) {
     exit();
 }
 
+// Global Connection Check
 if ($mysqli->connect_error) {
     sendJson('error', 'Database Connection Failed', null, $mysqli->connect_error);
 }

@@ -66,7 +66,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
   };
 
   return (
-    <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center p-6 relative overflow-hidden">
+    <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 relative overflow-hidden">
       
       {/* Background Decor */}
       <div className="absolute top-0 left-0 w-96 h-96 bg-indigo-200 rounded-full blur-[120px] opacity-20 -translate-x-1/2 -translate-y-1/2"></div>

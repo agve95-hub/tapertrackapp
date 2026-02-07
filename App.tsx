@@ -227,7 +227,7 @@ const App: React.FC = () => {
   }
 
   // 2. If authenticated but loading initial data
-  if (!isLoaded) return <div className="min-h-screen bg-stone-50" />;
+  if (!isLoaded) return <div className="min-h-screen bg-white" />;
 
   // 3. If Local PIN Lock is active
   if (isAppLocked && userSettings.isPinEnabled && userSettings.pinCode) {
@@ -241,7 +241,7 @@ const App: React.FC = () => {
 
   // 4. Main App
   return (
-    <div className="min-h-screen bg-[#fcfcfc] text-stone-800 font-sans max-w-5xl mx-auto relative shadow-2xl shadow-stone-200 border-x border-stone-100">
+    <div className="min-h-screen bg-white text-stone-800 font-sans w-full relative">
       
       <SettingsModal 
         isOpen={showSettings} 
@@ -251,54 +251,56 @@ const App: React.FC = () => {
       />
 
       {/* Header */}
-      <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-stone-100 px-6 py-4 flex items-center justify-between transition-all">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20 ring-1 ring-white/50">
-             <Activity className="text-white w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold text-stone-900 leading-none tracking-tight">
-              TaperTrack
-            </h1>
-            <p className="text-[10px] text-stone-500 font-semibold tracking-wider uppercase mt-1">
-               {username ? `Hello, ${username}` : 'Wellness Protocol'}
-            </p>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-3">
-           {currentView === ViewState.TODAY && (
-              <div className="flex items-center bg-stone-100/50 rounded-full p-1 border border-stone-200/60 shadow-inner hidden sm:flex">
-                <button onClick={() => changeDate(-1)} className="p-2 hover:bg-white rounded-full transition-all shadow-sm hover:shadow text-stone-500 hover:text-indigo-600 active:scale-95">
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <span className="text-xs font-bold px-3 text-stone-700 min-w-[90px] text-center tabular-nums">
-                  {new Date(selectedDate).toLocaleDateString(undefined, {month: 'short', day: 'numeric'})}
-                </span>
+      <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-stone-100 transition-all">
+        <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20 ring-1 ring-white/50">
+                <Activity className="text-white w-5 h-5" />
+            </div>
+            <div>
+                <h1 className="text-lg font-bold text-stone-900 leading-none tracking-tight">
+                TaperTrack
+                </h1>
+                <p className="text-[10px] text-stone-500 font-semibold tracking-wider uppercase mt-1">
+                {username ? `Hello, ${username}` : 'Wellness Protocol'}
+                </p>
+            </div>
+            </div>
+            
+            <div className="flex items-center gap-3">
+            {currentView === ViewState.TODAY && (
+                <div className="flex items-center bg-stone-100/50 rounded-full p-1 border border-stone-200/60 shadow-inner hidden sm:flex">
+                    <button onClick={() => changeDate(-1)} className="p-2 hover:bg-white rounded-full transition-all shadow-sm hover:shadow text-stone-500 hover:text-indigo-600 active:scale-95">
+                    <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <span className="text-xs font-bold px-3 text-stone-700 min-w-[90px] text-center tabular-nums">
+                    {new Date(selectedDate).toLocaleDateString(undefined, {month: 'short', day: 'numeric'})}
+                    </span>
+                    <button 
+                    onClick={() => changeDate(1)} 
+                    disabled={selectedDate === new Date().toISOString().split('T')[0]}
+                    className="p-2 hover:bg-white rounded-full transition-all shadow-sm hover:shadow text-stone-500 hover:text-indigo-600 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-stone-500 active:scale-95"
+                    >
+                    <ChevronRight className="w-4 h-4" />
+                    </button>
+                </div>
+                )}
+                
                 <button 
-                  onClick={() => changeDate(1)} 
-                  disabled={selectedDate === new Date().toISOString().split('T')[0]}
-                  className="p-2 hover:bg-white rounded-full transition-all shadow-sm hover:shadow text-stone-500 hover:text-indigo-600 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-stone-500 active:scale-95"
+                onClick={() => setShowSettings(true)}
+                className="p-2.5 rounded-full bg-white border border-stone-200 text-stone-500 hover:text-indigo-600 hover:border-indigo-200 hover:shadow-md transition-all active:scale-95"
                 >
-                  <ChevronRight className="w-4 h-4" />
+                <Settings className="w-5 h-5" />
                 </button>
-              </div>
-            )}
-            
-            <button 
-              onClick={() => setShowSettings(true)}
-              className="p-2.5 rounded-full bg-white border border-stone-200 text-stone-500 hover:text-indigo-600 hover:border-indigo-200 hover:shadow-md transition-all active:scale-95"
-            >
-              <Settings className="w-5 h-5" />
-            </button>
-            
-            <button 
-              onClick={handleLogout}
-              className="p-2.5 rounded-full bg-stone-100 border border-stone-200 text-stone-500 hover:text-red-600 hover:bg-red-50 hover:border-red-100 transition-all active:scale-95"
-              title="Logout"
-            >
-              <LogOut className="w-5 h-5" />
-            </button>
+                
+                <button 
+                onClick={handleLogout}
+                className="p-2.5 rounded-full bg-stone-100 border border-stone-200 text-stone-500 hover:text-red-600 hover:bg-red-50 hover:border-red-100 transition-all active:scale-95"
+                title="Logout"
+                >
+                <LogOut className="w-5 h-5" />
+                </button>
+            </div>
         </div>
       </header>
 
@@ -346,10 +348,12 @@ const App: React.FC = () => {
       </div>
 
       {/* Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 max-w-5xl mx-auto bg-white/90 backdrop-blur-xl border-t border-stone-200/80 flex justify-between items-center z-40 pb-safe px-6 shadow-[0_-8px_30px_-5px_rgba(0,0,0,0.03)]">
-        <NavButton view={ViewState.TODAY} icon={LayoutDashboard} label="Daily" />
-        <NavButton view={ViewState.HISTORY} icon={Activity} label="Analytics" />
-        <NavButton view={ViewState.TAPER} icon={BookOpen} label="Protocol" />
+      <nav className="fixed bottom-0 left-0 right-0 w-full bg-white/90 backdrop-blur-xl border-t border-stone-100 z-40 pb-safe shadow-[0_-8px_30px_-5px_rgba(0,0,0,0.03)]">
+        <div className="max-w-4xl mx-auto px-6 flex justify-between items-center">
+            <NavButton view={ViewState.TODAY} icon={LayoutDashboard} label="Daily" />
+            <NavButton view={ViewState.HISTORY} icon={Activity} label="Analytics" />
+            <NavButton view={ViewState.TAPER} icon={BookOpen} label="Protocol" />
+        </div>
       </nav>
       
       <div className="h-6 w-full bg-white fixed bottom-0 left-0 right-0 -z-10" />

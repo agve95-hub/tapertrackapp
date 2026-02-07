@@ -1,9 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { DailyLogEntry } from '../types';
 import { 
-  LineChart, 
+  ComposedChart, 
   Line, 
-  BarChart, 
   Bar, 
   XAxis, 
   YAxis, 
@@ -12,7 +11,9 @@ import {
   ResponsiveContainer,
   Legend
 } from 'recharts';
-import { Calendar, FileText, ChevronDown, Zap } from 'lucide-react';
+import { Calendar, FileText, ChevronDown, Download, FileDown, TrendingUp } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface HistoryAnalyticsProps {
   logs: DailyLogEntry[];
@@ -37,14 +38,12 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
       bpSys: l.bpMorningSys || null,
       bpDia: l.bpMorningDia || null,
       brainZapLevel: l.brainZapLevel || 0,
-      // Ensure we have numbers for the charts
       anxietyLevel: l.anxietyLevel || 0,
       moodLevel: l.moodLevel || 0,
       depressionLevel: l.depressionLevel || 0,
       sleepHrs: l.sleepHrs || 0
     });
 
-    // If daily, return raw sorted logs formatted
     if (viewMode === 'daily') {
        return sortedLogs.map(formatEntry);
     }
@@ -53,21 +52,17 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
     const groups: Record<string, DailyLogEntry[]> = {};
     
     sortedLogs.forEach(log => {
-      // Parse YYYY-MM-DD safely
       const [y, m, d] = log.date.split('-').map(Number);
       const dateObj = new Date(y, m - 1, d);
       
       let key = '';
-      
       if (viewMode === 'weekly') {
-         // Group by Week (Monday start)
-         const day = dateObj.getDay(); // 0 is Sunday
+         const day = dateObj.getDay(); 
          const diff = dateObj.getDate() - day + (day === 0 ? -6 : 1); 
          const monday = new Date(dateObj);
          monday.setDate(diff);
          key = monday.toISOString().split('T')[0];
       } else {
-         // Group by Month
          key = `${y}-${String(m).padStart(2, '0')}-01`;
       }
       
@@ -75,21 +70,18 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
       groups[key].push(log);
     });
 
-    // Create averaged entries
     return Object.keys(groups).sort().map(dateKey => {
        const group = groups[dateKey];
-       
        const avg = (field: keyof DailyLogEntry) => {
          const valid = group.filter(g => g[field] !== undefined);
          if (valid.length === 0) return 0;
          const sum = valid.reduce((acc, curr) => acc + (Number(curr[field]) || 0), 0);
          return Number((sum / valid.length).toFixed(1));
        };
-       
        const avgNapMins = avg('napMinutes');
 
        return {
-         ...group[0], // keep base structure
+         ...group[0],
          date: dateKey,
          anxietyLevel: avg('anxietyLevel'),
          moodLevel: avg('moodLevel'),
@@ -105,46 +97,55 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
     const [y, m, d] = dateStr.split('-').map(Number);
     const date = new Date(y, m - 1, d);
     
-    if (viewMode === 'monthly') {
-      return date.toLocaleDateString(undefined, { month: 'short' });
-    }
+    if (viewMode === 'monthly') return date.toLocaleDateString(undefined, { month: 'short' });
     return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   };
 
-  const CustomDropdown = () => (
-    <div className="relative group">
-      <select 
-        value={viewMode}
-        onChange={(e) => setViewMode(e.target.value as ViewMode)}
-        className="appearance-none bg-stone-100 hover:bg-stone-200 transition-colors pl-4 pr-9 py-2 rounded-lg text-xs font-bold text-stone-600 outline-none cursor-pointer border border-transparent focus:border-indigo-200"
-      >
-        <option value="daily">Daily View</option>
-        <option value="weekly">Weekly Avg</option>
-        <option value="monthly">Monthly Avg</option>
-      </select>
-      <ChevronDown className="w-3 h-3 text-stone-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-    </div>
-  );
+  const handleDownloadPDF = () => {
+    const doc = new jsPDF();
+    doc.setFontSize(18);
+    doc.text("TaperTrack Wellness Log", 14, 20);
+    doc.setFontSize(11);
+    doc.text(`Generated on ${new Date().toLocaleDateString()}`, 14, 28);
+
+    const tableData = sortedLogs.slice().reverse().map(log => [
+      log.date,
+      `${log.lDose}mg`,
+      `${log.sleepHrs}h${log.napMinutes ? ` +${log.napMinutes}m` : ''}`,
+      log.anxietyLevel,
+      log.moodLevel,
+      log.depressionLevel || '-',
+      ['None','Mild','Mod','Sev'][log.brainZapLevel || 0],
+      log.bpMorningSys ? `${log.bpMorningSys}/${log.bpMorningDia}` : '-'
+    ]);
+
+    autoTable(doc, {
+      head: [['Date', 'Dose', 'Sleep', 'Anx', 'Mood', 'Dep', 'Zaps', 'BP (AM)']],
+      body: tableData,
+      startY: 35,
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [79, 70, 229] } // Indigo 600
+    });
+
+    doc.save(`taper-track-log-${new Date().toISOString().split('T')[0]}.pdf`);
+  };
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-white p-3 rounded-xl shadow-xl border border-stone-100 text-xs">
           <p className="font-bold text-stone-700 mb-2">{label ? formatDateAxis(label) : ''}</p>
-          {payload.map((entry: any, index: number) => (
-            <div key={index} className="flex items-center gap-2 mb-1">
-              <div 
-                className="w-2 h-2 rounded-full" 
-                style={{ backgroundColor: entry.color }}
-              />
-              <span className="text-stone-500 font-medium capitalize">
-                {entry.name}:
-              </span>
-              <span className="font-bold text-stone-700">
-                {entry.value}
-              </span>
-            </div>
-          ))}
+          <div className="space-y-1">
+             {payload.map((entry: any, index: number) => (
+                <div key={index} className="flex items-center gap-2 justify-between min-w-[120px]">
+                  <div className="flex items-center gap-2">
+                     <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
+                     <span className="text-stone-500 font-medium capitalize">{entry.name}</span>
+                  </div>
+                  <span className="font-bold text-stone-700">{entry.value}</span>
+                </div>
+             ))}
+          </div>
         </div>
       );
     }
@@ -166,217 +167,228 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
   }
 
   return (
-    <div className="space-y-8 pb-24">
+    <div className="space-y-6 pb-24">
       
       {/* Header */}
-      <div>
-        <h2 className="text-2xl font-bold text-stone-900">Analytics</h2>
-        <p className="text-stone-500 text-sm mt-1">
-          Tracking correlations and patterns over time
-        </p>
+      <div className="flex items-end justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-stone-900">Analytics</h2>
+          <p className="text-stone-500 text-sm mt-1">
+            Tracking correlations over time
+          </p>
+        </div>
       </div>
 
-      {/* CHART 1: SYMPTOM TRENDS (Line Chart) */}
-      <div className="bg-white p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-stone-100">
-        <div className="flex items-center justify-between mb-8">
-           <div>
-             <h3 className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-1">LINE CHART</h3>
-             <div className="flex items-center gap-4 text-sm font-medium">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-teal-400"></span>
-                  <span className="text-stone-600">Anxiety</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
-                  <span className="text-stone-600">Mood</span>
-                </div>
-             </div>
+      {/* COMBINED CHART CARD */}
+      <div className="bg-white p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-stone-100 relative">
+        
+        {/* Card Header & Filter */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+           <div className="flex items-center gap-2">
+              <div className="bg-indigo-50 p-2 rounded-lg text-indigo-600">
+                <TrendingUp className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-stone-800 uppercase tracking-wide">Wellness Trends</h3>
+                <p className="text-[10px] text-stone-400 font-medium">Sleep vs. Symptoms</p>
+              </div>
            </div>
-           <CustomDropdown />
+           
+           <div className="relative group">
+              <select 
+                value={viewMode}
+                onChange={(e) => setViewMode(e.target.value as ViewMode)}
+                className="appearance-none bg-stone-100 hover:bg-stone-200 transition-colors pl-4 pr-10 py-2 rounded-xl text-xs font-bold text-stone-600 outline-none cursor-pointer focus:ring-2 focus:ring-indigo-100 border-none"
+              >
+                <option value="daily">Daily View</option>
+                <option value="weekly">Weekly Avg</option>
+                <option value="monthly">Monthly Avg</option>
+              </select>
+              <ChevronDown className="w-3.5 h-3.5 text-stone-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+           </div>
         </div>
         
-        <div className="h-72 w-full">
+        {/* Chart */}
+        <div className="h-80 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+            <ComposedChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
               <XAxis 
                 dataKey="date" 
                 tickFormatter={formatDateAxis}
                 axisLine={false}
                 tickLine={false}
-                tick={{fill: '#9ca3af', fontSize: 10, fontWeight: 500}}
+                tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 500}}
                 dy={10}
                 interval={viewMode === 'daily' ? 'preserveStartEnd' : 0}
               />
-              <YAxis 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{fill: '#9ca3af', fontSize: 10, fontWeight: 500}} 
-                domain={[0, 10]}
-              />
-              <Tooltip content={<CustomTooltip />} cursor={{stroke: '#e2e8f0', strokeWidth: 1}} />
-              <Line 
-                type="monotone" 
-                dataKey="anxietyLevel" 
-                name="Anxiety"
-                stroke="#2dd4bf" 
-                strokeWidth={3} 
-                dot={{r: 4, strokeWidth: 2, fill: '#fff', stroke: '#2dd4bf'}} 
-                activeDot={{r: 6, strokeWidth: 0, fill: '#2dd4bf'}}
-              />
-              <Line 
-                type="monotone" 
-                dataKey="moodLevel" 
-                name="Mood"
-                stroke="#6366f1" 
-                strokeWidth={3} 
-                dot={{r: 4, strokeWidth: 2, fill: '#fff', stroke: '#6366f1'}} 
-                activeDot={{r: 6, strokeWidth: 0, fill: '#6366f1'}}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* CHART 2: SLEEP ANALYSIS (Stacked Bar Chart) */}
-      <div className="bg-white p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-stone-100">
-        <div className="flex items-center justify-between mb-8">
-           <div>
-             <h3 className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-1">STACKED BAR CHART</h3>
-             <div className="flex items-center gap-4 text-sm font-medium">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-teal-400"></span>
-                  <span className="text-stone-600">Night Sleep</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-sky-300"></span>
-                  <span className="text-stone-600">Naps</span>
-                </div>
-             </div>
-           </div>
-           <CustomDropdown />
-        </div>
-        
-        <div className="h-72 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} barGap={0}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-              <XAxis 
-                dataKey="date" 
-                tickFormatter={formatDateAxis}
-                axisLine={false}
-                tickLine={false}
-                tick={{fill: '#9ca3af', fontSize: 10, fontWeight: 500}}
-                dy={10}
-                interval={viewMode === 'daily' ? 'preserveStartEnd' : 0}
-              />
-              <YAxis 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{fill: '#9ca3af', fontSize: 10, fontWeight: 500}} 
-              />
-              <Tooltip content={<CustomTooltip />} cursor={{fill: '#f8fafc'}} />
               
+              {/* Left Axis: Scores 0-10 */}
+              <YAxis 
+                yAxisId="left"
+                orientation="left"
+                axisLine={false} 
+                tickLine={false} 
+                tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 500}} 
+                domain={[0, 10]}
+                ticks={[0, 2, 4, 6, 8, 10]}
+              />
+              
+              {/* Right Axis: Hours 0-12 (Sleep) */}
+              <YAxis 
+                yAxisId="right"
+                orientation="right"
+                axisLine={false} 
+                tickLine={false} 
+                tick={{fill: '#cbd5e1', fontSize: 10, fontWeight: 500}} 
+                domain={[0, 12]}
+                hide={false}
+              />
+
+              <Tooltip content={<CustomTooltip />} cursor={{fill: '#f8fafc', opacity: 0.5}} />
+              
+              <Legend 
+                wrapperStyle={{ paddingTop: '20px', fontSize: '11px', fontWeight: 600, color: '#64748b' }} 
+                iconType="circle"
+              />
+              
+              {/* BARS: Sleep */}
               <Bar 
+                yAxisId="right"
                 dataKey="sleepHrs" 
-                name="Sleep"
+                name="Sleep (hrs)"
                 stackId="a" 
-                fill="#2dd4bf" 
-                barSize={viewMode === 'daily' ? 12 : 32}
+                fill="#cbd5e1" 
+                barSize={viewMode === 'daily' ? 12 : 24}
+                opacity={0.6}
               />
               <Bar 
+                yAxisId="right"
                 dataKey="napHrs" 
                 name="Naps"
                 stackId="a" 
-                fill="#7dd3fc" 
+                fill="#94a3b8" 
                 radius={[4, 4, 0, 0]}
-                barSize={viewMode === 'daily' ? 12 : 32}
+                barSize={viewMode === 'daily' ? 12 : 24}
+                opacity={0.6}
               />
-            </BarChart>
+
+              {/* LINES: Symptoms */}
+              <Line 
+                yAxisId="left"
+                type="monotone" 
+                dataKey="anxietyLevel" 
+                name="Anxiety"
+                stroke="#f43f5e" 
+                strokeWidth={2.5} 
+                dot={false}
+                activeDot={{r: 6}}
+              />
+              <Line 
+                yAxisId="left"
+                type="monotone" 
+                dataKey="moodLevel" 
+                name="Mood"
+                stroke="#10b981" 
+                strokeWidth={2.5} 
+                dot={false}
+                activeDot={{r: 6}}
+              />
+              <Line 
+                yAxisId="left"
+                type="monotone" 
+                dataKey="brainZapLevel" 
+                name="Zaps"
+                stroke="#6366f1" 
+                strokeWidth={2} 
+                strokeDasharray="4 4"
+                dot={false}
+                activeDot={{r: 6}}
+              />
+            </ComposedChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      {/* History Log Table */}
+      {/* RAW DATA TABLE */}
       <div className="bg-white rounded-3xl shadow-sm border border-stone-100 overflow-hidden">
-        <div className="p-6 border-b border-stone-100 bg-stone-50/50">
-           <h3 className="font-bold text-stone-800 flex items-center gap-2">
+        <div className="p-5 border-b border-stone-100 flex items-center justify-between bg-stone-50/30">
+           <h3 className="font-bold text-stone-800 flex items-center gap-2 text-sm">
              <Calendar className="w-4 h-4 text-stone-400" />
-             Raw Data Log
+             Data Log
            </h3>
+           <button 
+             onClick={handleDownloadPDF}
+             className="text-[10px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-full flex items-center gap-1.5 transition-colors"
+           >
+             <FileDown className="w-3.5 h-3.5" />
+             Download PDF
+           </button>
         </div>
+        
         <div className="overflow-x-auto custom-scrollbar">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-white text-stone-400 text-xs font-bold uppercase tracking-wider border-b border-stone-100">
+          <table className="w-full text-left">
+            <thead className="bg-white text-stone-400 text-[10px] font-bold uppercase tracking-wider border-b border-stone-100">
               <tr>
-                <th className="p-4 whitespace-nowrap pl-6">Date</th>
-                <th className="p-4">Meds</th>
-                <th className="p-4">Sleep</th>
-                <th className="p-4">Anxiety</th>
-                <th className="p-4">Depress</th>
-                <th className="p-4">Mood</th>
-                <th className="p-4">Zaps</th>
-                <th className="p-4 whitespace-nowrap pr-6">BP (AM)</th>
+                <th className="py-3 px-4 whitespace-nowrap">Date</th>
+                <th className="py-3 px-4">Dose</th>
+                <th className="py-3 px-4">Sleep</th>
+                <th className="py-3 px-4 text-center">Anx</th>
+                <th className="py-3 px-4 text-center">Mood</th>
+                <th className="py-3 px-4 text-center">Dep</th>
+                <th className="py-3 px-4 text-center">Zap</th>
+                <th className="py-3 px-4 whitespace-nowrap">BP (AM)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-50">
               {sortedLogs.slice().reverse().map((log, i) => (
                 <tr key={i} className="hover:bg-stone-50/80 transition-colors group">
-                  <td className="p-4 pl-6 whitespace-nowrap font-semibold text-stone-700">
+                  <td className="py-3 px-4 whitespace-nowrap text-xs font-bold text-stone-700">
                     {new Date(log.date).toLocaleDateString(undefined, {month: 'short', day: 'numeric'})}
-                    <span className="text-stone-300 font-normal ml-2 text-xs hidden sm:inline">{new Date(log.date).toLocaleDateString(undefined, {weekday: 'short'})}</span>
+                    <span className="text-stone-300 font-normal ml-1">
+                      {new Date(log.date).toLocaleDateString(undefined, {weekday: 'short'})}
+                    </span>
                   </td>
-                  <td className="p-4">
-                    <div className="flex flex-col gap-1">
-                      <span className="bg-stone-100 text-stone-600 px-2 py-0.5 rounded text-xs font-bold w-fit">
-                        {log.lDose}mg
-                      </span>
+                  <td className="py-3 px-4 whitespace-nowrap text-xs font-medium text-stone-600">
+                    {log.lDose}mg
+                  </td>
+                  <td className="py-3 px-4 whitespace-nowrap text-xs font-medium text-stone-600">
+                    {log.sleepHrs}h 
+                    {log.napMinutes ? <span className="text-stone-400 ml-1">+{log.napMinutes}m</span> : ''}
+                  </td>
+                  
+                  {/* Rating Cells: Compact Badges */}
+                  <td className="py-3 px-4 text-center">
+                    <div className={`w-6 h-6 rounded flex items-center justify-center text-[10px] font-bold mx-auto ${
+                      log.anxietyLevel > 6 ? 'bg-rose-100 text-rose-600' : 
+                      log.anxietyLevel > 3 ? 'bg-orange-50 text-orange-500' : 'bg-green-50 text-green-600'
+                    }`}>
+                      {log.anxietyLevel}
                     </div>
                   </td>
-                  <td className="p-4 font-medium text-stone-600">
-                    {log.sleepHrs}h
-                    {log.napMinutes ? <span className="text-[10px] text-blue-400 ml-1">+{log.napMinutes}m</span> : ''}
-                  </td>
-                  <td className="p-4">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${log.anxietyLevel > 6 ? 'bg-red-500' : 'bg-orange-400'}`} />
-                      <span className="text-stone-700 font-medium">{log.anxietyLevel}</span>
+                  <td className="py-3 px-4 text-center">
+                    <div className={`w-6 h-6 rounded flex items-center justify-center text-[10px] font-bold mx-auto ${
+                      log.moodLevel > 6 ? 'bg-emerald-100 text-emerald-600' : 
+                      log.moodLevel > 3 ? 'bg-stone-100 text-stone-500' : 'bg-red-50 text-red-500'
+                    }`}>
+                      {log.moodLevel}
                     </div>
                   </td>
-                  <td className="p-4">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${(log.depressionLevel || 1) > 6 ? 'bg-slate-700' : 'bg-purple-400'}`} />
-                      <span className="text-stone-700 font-medium">{log.depressionLevel || '-'}</span>
-                    </div>
+                   <td className="py-3 px-4 text-center">
+                    <span className="text-xs font-medium text-stone-400">{log.depressionLevel || '-'}</span>
                   </td>
-                  <td className="p-4">
-                     <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${log.moodLevel > 6 ? 'bg-green-500' : 'bg-teal-400'}`} />
-                      <span className="text-stone-700 font-medium">{log.moodLevel}</span>
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    {(log.brainZapLevel || 0) > 0 ? (
-                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                         (log.brainZapLevel || 0) === 3 ? 'bg-blue-100 text-blue-700' : 
-                         (log.brainZapLevel || 0) === 2 ? 'bg-blue-50 text-blue-600' : 'bg-stone-100 text-stone-500'
-                       }`}>
-                         {['None','Mild','Mod','Sev'][log.brainZapLevel || 0]}
+                  <td className="py-3 px-4 text-center">
+                     {(log.brainZapLevel || 0) > 0 ? (
+                       <span className="text-[10px] font-bold text-indigo-500">
+                         {['','Mild','Mod','Sev'][log.brainZapLevel || 0]}
                        </span>
-                    ) : (
-                      <span className="text-stone-300">-</span>
-                    )}
+                     ) : <span className="text-stone-300">-</span>}
                   </td>
-                  <td className="p-4 pr-6 whitespace-nowrap text-xs text-stone-500 font-mono">
-                    <div className="flex flex-col">
-                       <span>{log.bpMorningSys ? `${log.bpMorningSys}/${log.bpMorningDia}` : '-'}</span>
-                       {log.bpMorningPulse && (
-                         <div className="flex items-center gap-1 mt-0.5 text-stone-400">
-                           <Zap className="w-2.5 h-2.5 text-amber-500 fill-amber-500" />
-                           <span className="text-[10px] font-bold">{log.bpMorningPulse}</span>
-                         </div>
-                       )}
-                    </div>
+
+                  <td className="py-3 px-4 whitespace-nowrap text-xs font-mono text-stone-500">
+                    {log.bpMorningSys ? (
+                        <span>{log.bpMorningSys}/{log.bpMorningDia} <span className="text-stone-300 ml-1">{log.bpMorningPulse}</span></span>
+                    ) : '-'}
                   </td>
                 </tr>
               ))}

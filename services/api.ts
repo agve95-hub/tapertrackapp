@@ -1,8 +1,7 @@
 import { DailyLogEntry, TaperStep, UserSettings } from '../types';
 
-// Relative path assumes the 'api' folder is uploaded to the same root directory on the server
-// When running 'npm run build', Vite will copy public/api/index.php to dist/api/index.php
-const API_BASE = './api/index.php';
+// Use absolute path to ensure we hit the domain root
+const API_BASE = '/api/index.php';
 
 export const api = {
   /**
@@ -13,21 +12,25 @@ export const api = {
       const headers: Record<string, string> = {};
       if (pin) headers['X-App-Pin'] = pin;
 
+      console.log("Attempting to load data from:", API_BASE);
       const res = await fetch(`${API_BASE}?action=load`, { headers });
       
-      const contentType = res.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        // If we get HTML back (like a 404 page), it means the API file isn't found or PHP failed hard
-        console.warn("API Error: Received HTML instead of JSON. Check if api/index.php exists.");
+      const text = await res.text(); // Get raw text first to debug
+
+      if (!res.ok) {
+        console.error("API Load Error:", res.status, text);
         return null;
       }
 
-      if (!res.ok) throw new Error('Failed to fetch data');
-      
-      const json = await res.json();
-      return json.data || null;
+      try {
+        const json = JSON.parse(text);
+        return json.data || null;
+      } catch (e) {
+        console.error("JSON Parse Error (Load). Server response was:", text);
+        return null;
+      }
     } catch (e) {
-      console.warn("Cloud sync failed (offline or not hosted):", e);
+      console.warn("Cloud sync failed (offline or network error):", e);
       return null;
     }
   },
@@ -56,12 +59,22 @@ export const api = {
         body: JSON.stringify(data),
       });
 
-      if (!res.ok) throw new Error('Failed to save data');
+      const text = await res.text();
+
+      if (!res.ok) {
+        console.error("API Save Error:", res.status, text);
+        return false;
+      }
       
-      const json = await res.json();
-      return json.status === 'success';
+      try {
+        const json = JSON.parse(text);
+        return json.status === 'success';
+      } catch (e) {
+        console.error("JSON Parse Error (Save). Server response was:", text);
+        return false;
+      }
     } catch (e) {
-      console.error("Cloud save failed:", e);
+      console.error("Cloud save network error:", e);
       return false;
     }
   }

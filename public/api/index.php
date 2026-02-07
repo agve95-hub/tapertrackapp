@@ -1,11 +1,11 @@
 <?php
 /**
  * BACKEND API FOR TAPERTRACK
- * 
- * INSTRUCTIONS:
- * 1. Upload this file to your server (Hostinger puts it in public_html/api/index.php)
- * 2. Edit the $db, $user, and $pass variables below to match your Hostinger Database.
  */
+
+// --- CRITICAL: Suppress PHP warnings so they don't break JSON ---
+error_reporting(0);
+ini_set('display_errors', 0);
 
 // --- CONFIGURATION: EDIT THIS SECTION ---
 $host = 'localhost';
@@ -41,7 +41,7 @@ try {
     http_response_code(500);
     echo json_encode([
         'status' => 'error',
-        'message' => 'Database connection failed. Check config in api/index.php',
+        'message' => 'Database connection failed.',
         'debug' => $e->getMessage()
     ]);
     exit();
@@ -66,7 +66,7 @@ if ($action === 'load') {
         }
     } catch (Exception $e) {
         http_response_code(500);
-        echo json_encode(['status' => 'error', 'message' => 'SQL Load Error']);
+        echo json_encode(['status' => 'error', 'message' => 'SQL Load Error: ' . $e->getMessage()]);
     }
 } 
 

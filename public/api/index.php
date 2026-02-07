@@ -1,12 +1,13 @@
 <?php
 /**
  * BACKEND API FOR TAPERTRACK
- * V2.1 - Connection Debugging
+ * V2.2 - Production Configuration
  */
 
-// 1. ENABLE DEBUGGING (Temporarily enable to see errors in browser network tab)
+// 1. DISABLE DISPLAY ERRORS FOR JSON API
+// (Printing errors to screen breaks the JSON response for the app)
 error_reporting(E_ALL);
-ini_set('display_errors', 1);
+ini_set('display_errors', 0); 
 
 // 2. CORS HEADERS
 header("Access-Control-Allow-Origin: *");
@@ -20,11 +21,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
 }
 
 // --- DATABASE CONFIGURATION ---
-// ACTION REQUIRED: Update $pass with your NEW Hostinger Database Password
 $host = 'localhost';
 $db   = 'u321644199_taper';    
 $user = 'u321644199_agon.v';   
-$pass = '!Africa95!'; // <--- REPLACE THIS IF YOU CHANGED IT IN HOSTINGER
+
+// ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+// TODO: PASTE YOUR NEW HOSTINGER PASSWORD INSIDE THE QUOTES BELOW
+$pass = '!Africa95!'; 
+// ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+
 $charset = 'utf8mb4';
 
 function sendJson($status, $message, $data = null, $debug = null) {
@@ -37,32 +42,8 @@ try {
     $options = [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC];
     $pdo = new PDO($dsn, $user, $pass, $options);
 
-    // --- AUTOMATIC MIGRATION ---
-    $pdo->exec("CREATE TABLE IF NOT EXISTS users (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        username VARCHAR(50) NOT NULL UNIQUE,
-        password_hash VARCHAR(255) NOT NULL,
-        session_token VARCHAR(64) NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )");
-
-    $pdo->exec("CREATE TABLE IF NOT EXISTS app_data (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id INT NULL,
-        data_key VARCHAR(50) NOT NULL,
-        json_value LONGTEXT,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    )");
-    
-    // Migration check
-    try {
-        $pdo->query("SELECT user_id FROM app_data LIMIT 1");
-    } catch (Exception $e) {
-        $pdo->exec("ALTER TABLE app_data ADD COLUMN user_id INT NULL AFTER id");
-    }
-
 } catch (\PDOException $e) {
-    // This sends the EXACT error from the database (e.g. Access Denied) to your App
+    // Return connection error as JSON so the App can display it nicely
     sendJson('error', 'Database Connection Failed', null, $e->getMessage());
 }
 
@@ -92,15 +73,19 @@ if ($action === 'register') {
 
     if (!$username || !$password) sendJson('error', 'Username and password required');
 
+    // Check if username exists
     $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ?");
     $stmt->execute([$username]);
     if ($stmt->fetch()) sendJson('error', 'Username already taken');
 
+    // Create User
     $hash = password_hash($password, PASSWORD_DEFAULT);
     $token = bin2hex(random_bytes(32));
 
     $insert = $pdo->prepare("INSERT INTO users (username, password_hash, session_token) VALUES (?, ?, ?)");
     if ($insert->execute([$username, $hash, $token])) {
+        // Initialize default data for new user
+        $userId = $pdo->lastInsertId();
         sendJson('success', 'Account created', ['token' => $token, 'username' => $username]);
     } else {
         sendJson('error', 'Registration failed', null, implode(" ", $pdo->errorInfo()));

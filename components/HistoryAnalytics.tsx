@@ -11,9 +11,7 @@ import {
   ResponsiveContainer,
   Legend
 } from 'recharts';
-import { Calendar, FileText, ChevronDown, Download, FileDown, TrendingUp } from 'lucide-react';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import { Calendar, FileText, ChevronDown, TrendingUp } from 'lucide-react';
 
 interface HistoryAnalyticsProps {
   logs: DailyLogEntry[];
@@ -99,35 +97,6 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
     
     if (viewMode === 'monthly') return date.toLocaleDateString(undefined, { month: 'short' });
     return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-  };
-
-  const handleDownloadPDF = () => {
-    const doc = new jsPDF();
-    doc.setFontSize(18);
-    doc.text("TaperTrack Wellness Log", 14, 20);
-    doc.setFontSize(11);
-    doc.text(`Generated on ${new Date().toLocaleDateString()}`, 14, 28);
-
-    const tableData = sortedLogs.slice().reverse().map(log => [
-      log.date,
-      `${log.lDose}mg`,
-      `${log.sleepHrs}h${log.napMinutes ? ` +${log.napMinutes}m` : ''}`,
-      log.anxietyLevel,
-      log.moodLevel,
-      log.depressionLevel || '-',
-      ['None','Mild','Mod','Sev'][log.brainZapLevel || 0],
-      log.bpMorningSys ? `${log.bpMorningSys}/${log.bpMorningDia}` : '-'
-    ]);
-
-    autoTable(doc, {
-      head: [['Date', 'Dose', 'Sleep', 'Anx', 'Mood', 'Dep', 'Zaps', 'BP (AM)']],
-      body: tableData,
-      startY: 35,
-      styles: { fontSize: 9 },
-      headStyles: { fillColor: [79, 70, 229] } // Indigo 600
-    });
-
-    doc.save(`taper-track-log-${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -317,13 +286,6 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
              <Calendar className="w-4 h-4 text-stone-400" />
              Data Log
            </h3>
-           <button 
-             onClick={handleDownloadPDF}
-             className="text-[10px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-full flex items-center gap-1.5 transition-colors"
-           >
-             <FileDown className="w-3.5 h-3.5" />
-             Download PDF
-           </button>
         </div>
         
         <div className="overflow-x-auto custom-scrollbar">

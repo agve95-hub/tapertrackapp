@@ -12,13 +12,28 @@ export const api = {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ username, password: pass })
           });
-          const json = await res.json();
+          
+          // Catch HTML errors (Soft 404s)
+          const text = await res.text();
+          if (text.trim().startsWith("<")) {
+             console.error("API Error (HTML returned):", text);
+             alert("System Error: The server returned a webpage instead of JSON. Check if api/index.php exists.");
+             return null;
+          }
+
+          const json = JSON.parse(text);
           if (json.status === 'success') return json.data;
-          alert(json.message);
+          
+          // SHOW TECHNICAL ERROR
+          const errorMsg = json.debug 
+            ? `${json.message}\n\nServer Response:\n${json.debug}` 
+            : json.message;
+            
+          alert(errorMsg);
           return null;
       } catch (e) {
           console.error("Register Error", e);
-          alert("Connection failed");
+          alert("Connection failed: Could not reach server.");
           return null;
       }
   },
@@ -35,16 +50,22 @@ export const api = {
         try {
              const json = JSON.parse(text);
              if (json.status === 'success') return json.data;
-             alert(json.message); // Invalid credentials
+             
+             // SHOW TECHNICAL ERROR
+             const errorMsg = json.debug 
+                ? `${json.message}\n\nServer Response:\n${json.debug}` 
+                : json.message;
+
+             alert(errorMsg); 
              return null;
         } catch(e) {
              console.error("Login Parse Error", text);
-             alert("Server Error. Check console.");
+             alert("Server Error: Invalid response from API.");
              return null;
         }
     } catch (e) {
         console.error("Login Error", e);
-        alert("Connection failed");
+        alert("Connection failed: Could not reach server.");
         return null;
     }
   },

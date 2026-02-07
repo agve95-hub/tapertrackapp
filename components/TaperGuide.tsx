@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { TaperStep } from '../types';
 import { TAPER_SCHEDULE as DEFAULT_SCHEDULE } from '../constants';
-import { TrendingDown, ShieldAlert, PenLine, Save, RotateCcw, Plus, Trash2, Calendar } from 'lucide-react';
+import { TrendingDown, ShieldAlert, PenLine, Save, RotateCcw, Plus, Trash2, Calendar, Check } from 'lucide-react';
 
 interface TaperGuideProps {
   schedule: TaperStep[];
@@ -125,19 +125,27 @@ const TaperGuide: React.FC<TaperGuideProps> = ({
             
             {/* Step Number (View Mode Only) */}
             {!isEditing && (
-              <div className="hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 w-14 h-14 bg-white border-2 border-stone-100 rounded-full items-center justify-center z-10 shadow-sm group-hover:border-indigo-100 transition-colors">
-                <span className={`font-bold ${step.isCritical ? 'text-red-500' : 'text-stone-400'}`}>
-                  {idx + 1}
-                </span>
+              <div className={`hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 w-14 h-14 border-2 rounded-full items-center justify-center z-10 shadow-sm transition-all duration-300 ${
+                  step.isComplete 
+                    ? 'bg-green-500 border-green-500 text-white' 
+                    : 'bg-white border-stone-100 text-stone-400 group-hover:border-indigo-100'
+              }`}>
+                {step.isComplete ? (
+                    <Check className="w-6 h-6" />
+                ) : (
+                    <span className={`font-bold ${step.isCritical ? 'text-red-500' : ''}`}>
+                      {idx + 1}
+                    </span>
+                )}
               </div>
             )}
 
             {/* Content Card */}
-            <div className={`bg-white rounded-2xl p-5 border shadow-sm transition-all ${
+            <div className={`bg-white rounded-2xl p-5 border shadow-sm transition-all duration-300 ${
               step.isCritical && !isEditing
                 ? 'border-red-200 ring-4 ring-red-50 shadow-red-100/50' 
                 : 'border-stone-100 hover:shadow-md'
-            }`}>
+            } ${step.isComplete && !isEditing ? 'opacity-60 grayscale-[0.5] hover:opacity-100 hover:grayscale-0' : ''}`}>
               
               {isEditing ? (
                  // EDIT MODE CARD
@@ -195,9 +203,9 @@ const TaperGuide: React.FC<TaperGuideProps> = ({
                  </div>
               ) : (
                  // VIEW MODE CARD
-                 <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
                     {/* Dose & Weeks */}
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-4 min-w-[150px]">
                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg shrink-0 ${
                          step.isCritical ? 'bg-red-100 text-red-700' : 'bg-indigo-50 text-indigo-700'
                        }`}>
@@ -217,16 +225,33 @@ const TaperGuide: React.FC<TaperGuideProps> = ({
                     </div>
 
                     {/* Notes */}
-                    <div className="flex-1 sm:text-right">
+                    <div className="flex-1">
                        {step.isCritical && (
-                          <span className="inline-block bg-red-100 text-red-700 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wide mb-2 sm:mb-0 sm:mr-2">
+                          <span className="inline-block bg-red-100 text-red-700 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wide mb-2">
                             Heavy Zone
                           </span>
                        )}
-                       <p className="text-sm text-stone-600 leading-relaxed bg-stone-50 sm:bg-transparent p-3 sm:p-0 rounded-lg">
+                       <p className={`text-sm leading-relaxed bg-stone-50 sm:bg-transparent p-3 sm:p-0 rounded-lg ${
+                           step.isComplete ? 'text-stone-400 line-through decoration-stone-300' : 'text-stone-600'
+                       }`}>
                          {step.notes}
                        </p>
                     </div>
+
+                    {/* Completion Checkmark Toggle */}
+                    <button 
+                       onClick={() => handleStepChange(idx, 'isComplete', !step.isComplete)}
+                       className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 border-2 transition-all duration-300 active:scale-95 ${
+                          step.isComplete 
+                            ? 'bg-green-500 border-green-500 shadow-md shadow-green-200' 
+                            : 'bg-transparent border-stone-200 hover:border-indigo-300 hover:bg-stone-50 group-hover:border-indigo-200'
+                       }`}
+                       title={step.isComplete ? "Mark as Incomplete" : "Mark as Complete"}
+                    >
+                       <Check className={`w-6 h-6 transition-transform duration-300 ${
+                           step.isComplete ? 'text-white scale-100' : 'text-stone-300 scale-75'
+                       }`} strokeWidth={3} />
+                    </button>
                  </div>
               )}
 

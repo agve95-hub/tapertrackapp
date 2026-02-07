@@ -4,6 +4,7 @@ export interface TaperStep {
   dose: number | string; // string for "Below 2.0"
   notes: string;
   isCritical?: boolean;
+  isComplete?: boolean;
 }
 
 export interface ScheduleItem {

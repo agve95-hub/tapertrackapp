@@ -1,11 +1,10 @@
 <?php
 /**
  * BACKEND API FOR TAPERTRACK
- * V2.2 - Production Configuration
+ * V2.3 - Robust Connection Handling
  */
 
 // 1. DISABLE DISPLAY ERRORS FOR JSON API
-// (Printing errors to screen breaks the JSON response for the app)
 error_reporting(E_ALL);
 ini_set('display_errors', 0); 
 
@@ -21,13 +20,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
 }
 
 // --- DATABASE CONFIGURATION ---
-$host = 'localhost';
-$db   = 'u321644199_taper';    
-$user = 'u321644199_agon.v';   
+// We trim() values to remove accidental spaces from copy-pasting
+$host = trim('localhost');
+$db   = trim('u321644199_taper');    
+$user = trim('u321644199_agon.v');   
 
 // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-// TODO: PASTE YOUR NEW HOSTINGER PASSWORD INSIDE THE QUOTES BELOW
-$pass = '!Africa95!'; 
+// TODO: ENSURE THIS MATCHES HOSTINGER EXACTLY
+$pass = trim('!Africa95!'); 
 // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
 $charset = 'utf8mb4';
@@ -39,11 +39,16 @@ function sendJson($status, $message, $data = null, $debug = null) {
 
 try {
     $dsn = "mysql:host=$host;dbname=$db;charset=$charset";
-    $options = [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC];
+    $options = [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, 
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        PDO::ATTR_TIMEOUT => 5
+    ];
     $pdo = new PDO($dsn, $user, $pass, $options);
 
 } catch (\PDOException $e) {
     // Return connection error as JSON so the App can display it nicely
+    // We explicitly state it's a DB connection error
     sendJson('error', 'Database Connection Failed', null, $e->getMessage());
 }
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { AuthResponse } from '../types';
-import { Activity, ArrowRight, Lock, User, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { Activity, ArrowRight, Lock, User, CheckCircle2, AlertCircle, Loader2, Wrench } from 'lucide-react';
 
 interface AuthScreenProps {
   onSuccess: (auth: AuthResponse) => void;
@@ -89,13 +89,20 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
 
         {/* Status Banner (If Error) */}
         {status === 'error' && (
-          <div className="mb-6 bg-red-50 border border-red-100 p-4 rounded-xl flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
+          <div className="mb-6 bg-red-50 border border-red-100 p-4 rounded-xl flex items-start gap-3 animate-in fade-in slide-in-from-top-2 shadow-sm">
             <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
             <div>
-              <h3 className="text-sm font-bold text-red-700">Database Disconnected</h3>
+              <h3 className="text-sm font-bold text-red-700">Database Connection Failed</h3>
               <p className="text-xs text-red-600 mt-1 leading-relaxed">
-                The app cannot connect to the server. Please update the password in <code>api/index.php</code> to match your Hostinger database.
+                The app cannot connect to the server database. 
               </p>
+              <a 
+                href="/test.php" 
+                target="_blank" 
+                className="mt-2 inline-flex items-center gap-1 text-[10px] font-bold bg-white border border-red-200 text-red-600 px-2 py-1 rounded hover:bg-red-50 transition-colors"
+              >
+                <Wrench className="w-3 h-3" /> Run Diagnostic Tool
+              </a>
             </div>
           </div>
         )}

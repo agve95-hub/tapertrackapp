@@ -1,13 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { AuthResponse } from '../types';
-import { Activity, Lock, User, AlertCircle, Loader2, ArrowRight } from 'lucide-react';
+import { Activity, Lock, User, AlertCircle, Loader2, ArrowRight, Quote } from 'lucide-react';
 
 interface AuthScreenProps {
   onSuccess: (auth: AuthResponse) => void;
 }
 
 type AuthMode = 'login' | 'register';
+
+const INSPIRATIONAL_QUOTES = [
+  { text: "It does not matter how slowly you go as long as you do not stop.", author: "Confucius" },
+  { text: "Difficulties strengthen the mind, as labor does the body.", author: "Seneca" },
+  { text: "We acquire the strength we have overcome.", author: "Ralph Waldo Emerson" },
+  { text: "The best way out is always through.", author: "Robert Frost" },
+  { text: "He who has a why to live can bear almost any how.", author: "Friedrich Nietzsche" },
+  { text: "Patience and time do more than strength or passion.", author: "Jean de La Fontaine" },
+  { text: "The only journey is the one within.", author: "Rainer Maria Rilke" },
+  { text: "Act as if what you do makes a difference. It does.", author: "William James" },
+  { text: "Start where you are. Use what you have. Do what you can.", author: "Arthur Ashe" },
+  { text: "Every wall is a door.", author: "Ralph Waldo Emerson" },
+  { text: "Turn your face to the sunshine and you cannot see a shadow.", author: "Helen Keller" },
+  { text: "Knowing your own darkness is the best method for dealing with the darknesses of other people.", author: "Carl Jung" }
+];
 
 const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
   const [mode, setMode] = useState<AuthMode>('login');
@@ -20,8 +35,11 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
   // UI State
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState<'checking' | 'online' | 'error'>('checking');
+  
+  // Quote State
+  const [dailyQuote, setDailyQuote] = useState(INSPIRATIONAL_QUOTES[0]);
 
-  // Check Database Connection on Mount
+  // Check Database Connection on Mount & Set Quote
   useEffect(() => {
     const check = async () => {
       setStatus('checking');
@@ -33,6 +51,10 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
       }
     };
     check();
+    
+    // Set random quote
+    const randomIndex = Math.floor(Math.random() * INSPIRATIONAL_QUOTES.length);
+    setDailyQuote(INSPIRATIONAL_QUOTES[randomIndex]);
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -72,7 +94,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
       <div className="absolute top-0 left-0 w-96 h-96 bg-indigo-200 rounded-full blur-[120px] opacity-20 -translate-x-1/2 -translate-y-1/2"></div>
       <div className="absolute bottom-0 right-0 w-96 h-96 bg-blue-200 rounded-full blur-[120px] opacity-20 translate-x-1/2 translate-y-1/2"></div>
 
-      <div className="w-full max-w-sm relative z-10">
+      <div className="w-full max-w-sm relative z-10 flex flex-col">
         
         {/* Brand Header */}
         <div className="flex flex-col items-center mb-8">
@@ -99,7 +121,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
         )}
 
         {/* Main Card */}
-        <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-stone-100 overflow-hidden">
+        <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-stone-100 overflow-hidden relative z-20">
            
            {/* Tabs */}
            <div className="flex border-b border-stone-100">
@@ -221,6 +243,21 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
         <p className="text-center text-[10px] text-stone-400 mt-6 font-medium">
           Protected by End-to-End Logic & Secure Storage
         </p>
+
+        {/* Inspirational Quote Section */}
+        <div className="mt-12 text-center max-w-xs mx-auto animate-in fade-in slide-in-from-bottom-6 duration-1000">
+           <Quote className="w-6 h-6 text-indigo-200 mx-auto mb-3 opacity-50" />
+           <p className="text-stone-600 italic font-medium leading-relaxed font-serif">
+             "{dailyQuote.text}"
+           </p>
+           <div className="flex items-center justify-center gap-2 mt-3">
+             <div className="h-px w-6 bg-stone-200"></div>
+             <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
+               {dailyQuote.author}
+             </span>
+             <div className="h-px w-6 bg-stone-200"></div>
+           </div>
+        </div>
 
       </div>
     </div>

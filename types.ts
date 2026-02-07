@@ -1,3 +1,4 @@
+
 export interface TaperStep {
   weeks: string;
   dose: number | string; // string for "Below 2.0"
@@ -51,6 +52,11 @@ export interface UserSettings {
   pinCode: string | null;
   notificationsEnabled: boolean;
   notificationTime: string; // "08:00"
+}
+
+export interface AuthResponse {
+    token: string;
+    username: string;
 }
 
 export enum ViewState {

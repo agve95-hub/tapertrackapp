@@ -1,97 +1,101 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ViewState, DailyLogEntry, TaperStep, UserSettings } from './types';
+import { ViewState, DailyLogEntry, TaperStep, UserSettings, AuthResponse } from './types';
 import { TAPER_SCHEDULE } from './constants';
 import DailyTracker from './components/DailyTracker';
 import TaperGuide from './components/TaperGuide';
 import HistoryAnalytics from './components/HistoryAnalytics';
-import LoginScreen from './components/LoginScreen';
+import LoginScreen from './components/LoginScreen'; // Local PIN
+import AuthScreen from './components/AuthScreen'; // Server Login
 import SettingsModal from './components/SettingsModal';
 import { api } from './services/api';
-import { LayoutDashboard, Activity, BookOpen, ChevronLeft, ChevronRight, Settings, Cloud, CloudOff, RefreshCw } from 'lucide-react';
+import { LayoutDashboard, Activity, BookOpen, ChevronLeft, ChevronRight, Settings, Cloud, CloudOff, RefreshCw, LogOut } from 'lucide-react';
 
 const STORAGE_KEY = 'taper_track_data_v1';
 const SCHEDULE_KEY = 'taper_schedule_custom_v1';
 const START_DATE_KEY = 'taper_start_date_v1';
 const SETTINGS_KEY = 'taper_settings_v1';
+const TOKEN_KEY = 'taper_auth_token_v1';
+const USER_KEY = 'taper_auth_user_v1';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>(ViewState.TODAY);
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  
+  // Auth State
+  const [authToken, setAuthToken] = useState<string | null>(localStorage.getItem(TOKEN_KEY));
+  const [username, setUsername] = useState<string | null>(localStorage.getItem(USER_KEY));
   
   // Data State
   const [logs, setLogs] = useState<DailyLogEntry[]>([]);
   const [taperSchedule, setTaperSchedule] = useState<TaperStep[]>(TAPER_SCHEDULE);
   const [protocolStartDate, setProtocolStartDate] = useState<string>('');
   
-  // Settings & Auth State
+  // Settings & App Lock
   const [userSettings, setUserSettings] = useState<UserSettings>({
     isPinEnabled: false,
     pinCode: null,
     notificationsEnabled: false,
     notificationTime: '09:00'
   });
-  const [isAppLocked, setIsAppLocked] = useState(true);
+  const [isAppLocked, setIsAppLocked] = useState(false); // Default false, only locks if PIN set
   const [showSettings, setShowSettings] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   
   // Sync State
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'error' | 'success'>('idle');
   const saveTimeoutRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Notification Timer Ref
   const notificationInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // INITIAL LOAD
+  // --- INITIAL LOAD ---
   useEffect(() => {
-    const initializeApp = async () => {
-      // 1. Load Local
-      const localLogs = localStorage.getItem(STORAGE_KEY);
-      const localSchedule = localStorage.getItem(SCHEDULE_KEY);
-      const localStart = localStorage.getItem(START_DATE_KEY);
+    const loadAppData = async () => {
+      // 1. Load Local PIN Settings first (always available locally)
       const localSettings = localStorage.getItem(SETTINGS_KEY);
-
-      let parsedSettings = localSettings ? JSON.parse(localSettings) : userSettings;
-
-      if (localLogs) setLogs(JSON.parse(localLogs));
-      if (localSchedule) setTaperSchedule(JSON.parse(localSchedule));
-      if (localStart) setProtocolStartDate(localStart);
-      if (localSettings) setUserSettings(parsedSettings);
-
-      // Lock Logic
-      if (!parsedSettings.isPinEnabled || !parsedSettings.pinCode) {
-        setIsAppLocked(false);
-      }
-
-      // 2. Try Cloud Load (Background)
-      // We pass the PIN if it exists to authenticate the read
-      const cloudData = await api.loadData(parsedSettings.pinCode);
-      if (cloudData) {
-        if (cloudData.logs) setLogs(cloudData.logs);
-        if (cloudData.schedule) setTaperSchedule(cloudData.schedule);
-        if (cloudData.startDate) setProtocolStartDate(cloudData.startDate);
-        if (cloudData.settings) {
-            setUserSettings(cloudData.settings);
-            // Re-evaluate lock if cloud settings differ (optional, usually we stick to local first for speed)
+      if (localSettings) {
+        const parsed = JSON.parse(localSettings);
+        setUserSettings(parsed);
+        if (parsed.isPinEnabled && parsed.pinCode) {
+           setIsAppLocked(true);
         }
-        setSyncStatus('success');
       }
 
+      // 2. If we have a token, load cloud data
+      if (authToken) {
+        const cloudData = await api.loadData(authToken);
+        
+        if (cloudData === 'UNAUTHORIZED') {
+           handleLogout();
+           return;
+        }
+
+        if (cloudData) {
+           // We prioritize cloud data
+           if (cloudData.logs) setLogs(cloudData.logs);
+           if (cloudData.schedule) setTaperSchedule(cloudData.schedule);
+           if (cloudData.startDate) setProtocolStartDate(cloudData.startDate);
+           if (cloudData.settings) {
+               // Merge settings (prefer cloud, but keep local pin enabled state if cloud is empty?)
+               // Actually, for simplicity, cloud overwrites local settings if they exist
+               setUserSettings(cloudData.settings);
+           }
+           setSyncStatus('success');
+        } 
+      }
+      
       setIsLoaded(true);
     };
 
-    initializeApp();
-  }, []);
+    loadAppData();
+  }, [authToken]);
 
-  // SAVE & SYNC LOGIC
+  // --- SAVE & SYNC ---
   useEffect(() => {
-    if (isLoaded) {
-      // 1. Local Save Immediate
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
-      localStorage.setItem(SCHEDULE_KEY, JSON.stringify(taperSchedule));
-      localStorage.setItem(START_DATE_KEY, protocolStartDate);
+    if (isLoaded && authToken) {
+      // 1. Save critical keys locally for offline capability
+      // (Note: With multi-user, local storage might be an issue if sharing device, but acceptable for this scope)
       localStorage.setItem(SETTINGS_KEY, JSON.stringify(userSettings));
 
-      // 2. Cloud Save Debounced (2 seconds)
+      // 2. Cloud Save
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
       
       setSyncStatus('syncing');
@@ -101,14 +105,32 @@ const App: React.FC = () => {
           schedule: taperSchedule,
           startDate: protocolStartDate,
           settings: userSettings
-        }, userSettings.pinCode);
+        }, authToken);
         
         setSyncStatus(success ? 'success' : 'error');
       }, 2000);
     }
-  }, [logs, taperSchedule, protocolStartDate, userSettings, isLoaded]);
+  }, [logs, taperSchedule, protocolStartDate, userSettings, isLoaded, authToken]);
 
-  // Notification Logic
+  // --- AUTH HANDLERS ---
+  const handleAuthSuccess = (auth: AuthResponse) => {
+    localStorage.setItem(TOKEN_KEY, auth.token);
+    localStorage.setItem(USER_KEY, auth.username);
+    setAuthToken(auth.token);
+    setUsername(auth.username);
+    // Force reload of data happens via useEffect on authToken change
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+    setAuthToken(null);
+    setUsername(null);
+    setLogs([]); // Clear sensitive data from memory
+    setSyncStatus('idle');
+  };
+
+  // --- NOTIFICATION LOGIC ---
   useEffect(() => {
     if (userSettings.notificationsEnabled && userSettings.notificationTime) {
       if (notificationInterval.current) clearInterval(notificationInterval.current);
@@ -130,7 +152,7 @@ const App: React.FC = () => {
     };
   }, [userSettings]);
 
-  // Handlers
+  // --- HELPERS ---
   const handleUpdateLog = (updatedEntry: DailyLogEntry) => {
     setLogs(prev => {
       const existingIndex = prev.findIndex(l => l.date === updatedEntry.date);
@@ -197,8 +219,17 @@ const App: React.FC = () => {
     </button>
   );
 
+  // --- RENDER GATES ---
+
+  // 1. If not authenticated, show Auth Screen
+  if (!authToken) {
+     return <AuthScreen onSuccess={handleAuthSuccess} />;
+  }
+
+  // 2. If authenticated but loading initial data
   if (!isLoaded) return <div className="min-h-screen bg-stone-50" />;
 
+  // 3. If Local PIN Lock is active
   if (isAppLocked && userSettings.isPinEnabled && userSettings.pinCode) {
     return (
       <LoginScreen 
@@ -208,6 +239,7 @@ const App: React.FC = () => {
     );
   }
 
+  // 4. Main App
   return (
     <div className="min-h-screen bg-[#fcfcfc] text-stone-800 font-sans max-w-5xl mx-auto relative shadow-2xl shadow-stone-200 border-x border-stone-100">
       
@@ -228,11 +260,13 @@ const App: React.FC = () => {
             <h1 className="text-lg font-bold text-stone-900 leading-none tracking-tight">
               TaperTrack
             </h1>
-            <p className="text-[10px] text-stone-500 font-semibold tracking-wider uppercase mt-1">Wellness Protocol</p>
+            <p className="text-[10px] text-stone-500 font-semibold tracking-wider uppercase mt-1">
+               {username ? `Hello, ${username}` : 'Wellness Protocol'}
+            </p>
           </div>
         </div>
         
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
            {currentView === ViewState.TODAY && (
               <div className="flex items-center bg-stone-100/50 rounded-full p-1 border border-stone-200/60 shadow-inner hidden sm:flex">
                 <button onClick={() => changeDate(-1)} className="p-2 hover:bg-white rounded-full transition-all shadow-sm hover:shadow text-stone-500 hover:text-indigo-600 active:scale-95">
@@ -256,6 +290,14 @@ const App: React.FC = () => {
               className="p-2.5 rounded-full bg-white border border-stone-200 text-stone-500 hover:text-indigo-600 hover:border-indigo-200 hover:shadow-md transition-all active:scale-95"
             >
               <Settings className="w-5 h-5" />
+            </button>
+            
+            <button 
+              onClick={handleLogout}
+              className="p-2.5 rounded-full bg-stone-100 border border-stone-200 text-stone-500 hover:text-red-600 hover:bg-red-50 hover:border-red-100 transition-all active:scale-95"
+              title="Logout"
+            >
+              <LogOut className="w-5 h-5" />
             </button>
         </div>
       </header>

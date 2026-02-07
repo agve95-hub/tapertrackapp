@@ -1,37 +1,80 @@
-import { DailyLogEntry, TaperStep, UserSettings } from '../types';
+import { DailyLogEntry, TaperStep, UserSettings, AuthResponse } from '../types';
 
-// Use relative path. This ensures it looks for /api/index.php relative to the index.html
-// e.g. https://domain.com/api/index.php or https://domain.com/subfolder/api/index.php
-const API_BASE = 'api/index.php';
+// Use ABSOLUTE path.
+const API_BASE = '/api/index.php';
 
 export const api = {
-  async loadData(pin: string | null) {
+  // --- AUTH METHODS ---
+  async register(username: string, pass: string): Promise<AuthResponse | null> {
+      try {
+          const res = await fetch(`${API_BASE}?action=register`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ username, password: pass })
+          });
+          const json = await res.json();
+          if (json.status === 'success') return json.data;
+          alert(json.message);
+          return null;
+      } catch (e) {
+          console.error("Register Error", e);
+          alert("Connection failed");
+          return null;
+      }
+  },
+
+  async login(username: string, pass: string): Promise<AuthResponse | null> {
+    try {
+        const res = await fetch(`${API_BASE}?action=login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password: pass })
+        });
+        const text = await res.text();
+        
+        try {
+             const json = JSON.parse(text);
+             if (json.status === 'success') return json.data;
+             alert(json.message); // Invalid credentials
+             return null;
+        } catch(e) {
+             console.error("Login Parse Error", text);
+             alert("Server Error. Check console.");
+             return null;
+        }
+    } catch (e) {
+        console.error("Login Error", e);
+        alert("Connection failed");
+        return null;
+    }
+  },
+
+  // --- DATA METHODS ---
+  async loadData(token: string) {
     try {
       const headers: Record<string, string> = {};
-      if (pin) headers['X-App-Pin'] = pin;
+      if (token) headers['Authorization'] = `Bearer ${token}`;
 
+      console.log("Loading data...");
       const res = await fetch(`${API_BASE}?action=load`, { headers });
       const text = await res.text();
 
-      if (!res.ok) {
-        console.error("API Load Error:", res.status, text);
-        // If 404, it means the file api/index.php is missing on the server
-        return null;
+      // Check for 404/HTML errors
+      if (text.includes("404") || text.trim().startsWith("<!DOCTYPE")) {
+         console.error("API Error", text);
+         return null;
       }
 
       try {
         const json = JSON.parse(text);
-        
-        // Handle explicit backend errors (e.g., Wrong Password)
         if (json.status === 'error') {
-            console.error("Backend Error:", json.message, json.debug);
-            alert(`Sync Error: ${json.message}\n\nDetails: ${json.debug || ''}`);
+            if (json.message === 'Unauthorized') return 'UNAUTHORIZED';
+            console.error("Backend Error:", json.message);
             return null;
         }
-
         return json.data || null;
       } catch (e) {
-        console.error("JSON Parse Error. Response:", text);
+        console.error("JSON Parse Error", text);
         return null;
       }
     } catch (e) {
@@ -47,13 +90,13 @@ export const api = {
       startDate: string,
       settings: UserSettings
     },
-    pin: string | null
+    token: string
   ) {
     try {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json'
       };
-      if (pin) headers['X-App-Pin'] = pin;
+      if (token) headers['Authorization'] = `Bearer ${token}`;
 
       const res = await fetch(`${API_BASE}?action=save`, {
         method: 'POST',
@@ -62,28 +105,17 @@ export const api = {
       });
 
       const text = await res.text();
-      
-      if (!res.ok) {
-        console.error("API Save Error:", res.status, text);
-        return false;
-      }
-
       try {
         const json = JSON.parse(text);
-        
         if (json.status === 'error') {
-             console.error("Save Error:", json.message, json.debug);
-             alert(`Save Failed: ${json.message}`);
+             console.error("Save Error:", json.message);
              return false;
         }
-
         return json.status === 'success';
       } catch (e) {
-        console.error("JSON Parse Error (Save). Response:", text);
         return false;
       }
     } catch (e) {
-      console.error("Network Error:", e);
       return false;
     }
   }

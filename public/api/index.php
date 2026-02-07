@@ -1,11 +1,14 @@
 <?php
 /**
  * BACKEND API FOR TAPERTRACK
- * V2.0 - Multi-User Support
+ * V2.1 - Connection Debugging
  */
 
+// 1. ENABLE DEBUGGING (Temporarily enable to see errors in browser network tab)
 error_reporting(E_ALL);
-ini_set('display_errors', 0);
+ini_set('display_errors', 1);
+
+// 2. CORS HEADERS
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Methods: GET,POST,OPTIONS");
@@ -16,11 +19,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
     exit();
 }
 
-// --- DB CONFIGURATION ---
+// --- DATABASE CONFIGURATION ---
+// ACTION REQUIRED: Update $pass with your NEW Hostinger Database Password
 $host = 'localhost';
 $db   = 'u321644199_taper';    
 $user = 'u321644199_agon.v';   
-$pass = '!Africa95!';          
+$pass = '!Africa95!'; // <--- REPLACE THIS IF YOU CHANGED IT IN HOSTINGER
 $charset = 'utf8mb4';
 
 function sendJson($status, $message, $data = null, $debug = null) {
@@ -33,9 +37,7 @@ try {
     $options = [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC];
     $pdo = new PDO($dsn, $user, $pass, $options);
 
-    // --- AUTOMATIC MIGRATION: SETUP TABLES ---
-    
-    // 1. Create Users Table
+    // --- AUTOMATIC MIGRATION ---
     $pdo->exec("CREATE TABLE IF NOT EXISTS users (
         id INT AUTO_INCREMENT PRIMARY KEY,
         username VARCHAR(50) NOT NULL UNIQUE,
@@ -44,7 +46,6 @@ try {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )");
 
-    // 2. Create/Update App Data Table
     $pdo->exec("CREATE TABLE IF NOT EXISTS app_data (
         id INT AUTO_INCREMENT PRIMARY KEY,
         user_id INT NULL,
@@ -52,8 +53,8 @@ try {
         json_value LONGTEXT,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )");
-
-    // 3. Ensure user_id column exists (Migrate old table if needed)
+    
+    // Migration check
     try {
         $pdo->query("SELECT user_id FROM app_data LIMIT 1");
     } catch (Exception $e) {
@@ -61,6 +62,7 @@ try {
     }
 
 } catch (\PDOException $e) {
+    // This sends the EXACT error from the database (e.g. Access Denied) to your App
     sendJson('error', 'Database Connection Failed', null, $e->getMessage());
 }
 
@@ -83,7 +85,6 @@ $action = $_GET['action'] ?? '';
 
 // --- ACTIONS ---
 
-// 1. REGISTER
 if ($action === 'register') {
     $input = json_decode(file_get_contents('php://input'), true);
     $username = $input['username'] ?? '';
@@ -91,24 +92,21 @@ if ($action === 'register') {
 
     if (!$username || !$password) sendJson('error', 'Username and password required');
 
-    // Check if exists
     $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ?");
     $stmt->execute([$username]);
     if ($stmt->fetch()) sendJson('error', 'Username already taken');
 
-    // Create User
     $hash = password_hash($password, PASSWORD_DEFAULT);
-    $token = bin2hex(random_bytes(32)); // Auto-login on register
+    $token = bin2hex(random_bytes(32));
 
     $insert = $pdo->prepare("INSERT INTO users (username, password_hash, session_token) VALUES (?, ?, ?)");
     if ($insert->execute([$username, $hash, $token])) {
         sendJson('success', 'Account created', ['token' => $token, 'username' => $username]);
     } else {
-        sendJson('error', 'Registration failed');
+        sendJson('error', 'Registration failed', null, implode(" ", $pdo->errorInfo()));
     }
 }
 
-// 2. LOGIN
 elseif ($action === 'login') {
     $input = json_decode(file_get_contents('php://input'), true);
     $username = $input['username'] ?? '';
@@ -128,7 +126,6 @@ elseif ($action === 'login') {
     }
 }
 
-// 3. LOAD DATA (Authenticated)
 elseif ($action === 'load') {
     $userId = authenticate($pdo);
     if (!$userId) sendJson('error', 'Unauthorized');
@@ -140,12 +137,10 @@ elseif ($action === 'load') {
     if ($row) {
         sendJson('success', 'Data loaded', json_decode($row['json_value']));
     } else {
-        // Return empty default structure if new user
         sendJson('success', 'New User', ['logs' => [], 'schedule' => [], 'startDate' => '']);
     }
 }
 
-// 4. SAVE DATA (Authenticated)
 elseif ($action === 'save') {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') sendJson('error', 'POST required');
     
@@ -154,7 +149,6 @@ elseif ($action === 'save') {
 
     $jsonInput = file_get_contents('php://input');
     
-    // Check if row exists for this user
     $check = $pdo->prepare("SELECT id FROM app_data WHERE user_id = ? AND data_key = 'main_backup'");
     $check->execute([$userId]);
     $exists = $check->fetch();

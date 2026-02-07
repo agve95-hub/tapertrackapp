@@ -9,9 +9,9 @@
 
 // --- CONFIGURATION: EDIT THIS SECTION ---
 $host = 'localhost';
-$db   = 'u123456789_taper'; // <-- CHANGE TO YOUR DATABASE NAME
-$user = 'u123456789_admin'; // <-- CHANGE TO YOUR DATABASE USERNAME
-$pass = 'YourPassword123!'; // <-- CHANGE TO YOUR DATABASE PASSWORD
+$db   = 'u321644199_taper';    // Your Hostinger Database Name
+$user = 'u321644199_agon.v';   // Your Hostinger Database Username
+$pass = '!Africa95!';          // Your Database Password
 $charset = 'utf8mb4';
 
 // --- HEADERS ---

@@ -4,6 +4,42 @@ import { DailyLogEntry, TaperStep, UserSettings, AuthResponse } from '../types';
 const API_BASE = '/api/index.php';
 
 export const api = {
+  // --- SYSTEM CHECK ---
+  async checkConnection(): Promise<{ ok: boolean; message?: string; debug?: string }> {
+      try {
+          // We call an invalid action just to trigger the DB connection logic in PHP
+          const res = await fetch(`${API_BASE}?action=ping`);
+          const text = await res.text();
+          
+          try {
+              const json = JSON.parse(text);
+              
+              // If the PHP script returns "Database Connection Failed", catch it here
+              if (json.message && json.message.includes('Database Connection Failed')) {
+                  return { 
+                      ok: false, 
+                      message: 'Database Access Denied', 
+                      debug: 'The password in public/api/index.php does not match Hostinger.' 
+                  };
+              }
+              
+              return { ok: true };
+          } catch (e) {
+              return { 
+                  ok: false, 
+                  message: 'API Error', 
+                  debug: 'The server returned invalid JSON. Check PHP syntax.' 
+              };
+          }
+      } catch (e) {
+          return { 
+              ok: false, 
+              message: 'Network Error', 
+              debug: 'Could not reach api/index.php.' 
+          };
+      }
+  },
+
   // --- AUTH METHODS ---
   async register(username: string, pass: string): Promise<AuthResponse | null> {
       try {
@@ -13,7 +49,6 @@ export const api = {
               body: JSON.stringify({ username, password: pass })
           });
           
-          // Catch HTML errors (Soft 404s)
           const text = await res.text();
           if (text.trim().startsWith("<")) {
              console.error("API Error (HTML returned):", text);
@@ -24,9 +59,8 @@ export const api = {
           const json = JSON.parse(text);
           if (json.status === 'success') return json.data;
           
-          // SHOW TECHNICAL ERROR
           const errorMsg = json.debug 
-            ? `${json.message}\n\nServer Response:\n${json.debug}` 
+            ? `${json.message}\n\nTechnical Details:\n${json.debug}` 
             : json.message;
             
           alert(errorMsg);
@@ -51,9 +85,8 @@ export const api = {
              const json = JSON.parse(text);
              if (json.status === 'success') return json.data;
              
-             // SHOW TECHNICAL ERROR
              const errorMsg = json.debug 
-                ? `${json.message}\n\nServer Response:\n${json.debug}` 
+                ? `${json.message}\n\nTechnical Details:\n${json.debug}` 
                 : json.message;
 
              alert(errorMsg); 
@@ -80,7 +113,6 @@ export const api = {
       const res = await fetch(`${API_BASE}?action=load`, { headers });
       const text = await res.text();
 
-      // Check for 404/HTML errors
       if (text.includes("404") || text.trim().startsWith("<!DOCTYPE")) {
          console.error("API Error", text);
          return null;

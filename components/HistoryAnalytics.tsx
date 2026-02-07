@@ -1,16 +1,18 @@
 import React, { useMemo, useState } from 'react';
 import { DailyLogEntry } from '../types';
 import { 
-  ComposedChart, 
+  LineChart, 
   Line, 
+  BarChart, 
   Bar, 
   XAxis, 
   YAxis, 
   CartesianGrid, 
   Tooltip, 
-  ResponsiveContainer 
+  ResponsiveContainer,
+  Legend
 } from 'recharts';
-import { Calendar, FileText, Layers, Filter, Zap } from 'lucide-react';
+import { Calendar, FileText, ChevronDown, Zap } from 'lucide-react';
 
 interface HistoryAnalyticsProps {
   logs: DailyLogEntry[];
@@ -21,20 +23,6 @@ type ViewMode = 'daily' | 'weekly' | 'monthly';
 const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
   const [viewMode, setViewMode] = useState<ViewMode>('daily');
   
-  // Filter State - Control visibility of metrics
-  const [filters, setFilters] = useState({
-    anxiety: true,
-    depression: false,
-    mood: false,
-    zaps: true,
-    sleep: true,
-    bp: true
-  });
-
-  const toggleFilter = (key: keyof typeof filters) => {
-    setFilters(prev => ({ ...prev, [key]: !prev[key] }));
-  };
-
   const sortedLogs = useMemo(() => {
     return [...logs].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [logs]);
@@ -48,7 +36,12 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
       napHrs: l.napMinutes ? parseFloat((l.napMinutes / 60).toFixed(1)) : 0,
       bpSys: l.bpMorningSys || null,
       bpDia: l.bpMorningDia || null,
-      brainZapLevel: l.brainZapLevel || 0
+      brainZapLevel: l.brainZapLevel || 0,
+      // Ensure we have numbers for the charts
+      anxietyLevel: l.anxietyLevel || 0,
+      moodLevel: l.moodLevel || 0,
+      depressionLevel: l.depressionLevel || 0,
+      sleepHrs: l.sleepHrs || 0
     });
 
     // If daily, return raw sorted logs formatted
@@ -93,18 +86,6 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
          return Number((sum / valid.length).toFixed(1));
        };
        
-       const avgBP = (sysField: 'bpMorningSys', diaField: 'bpMorningDia') => {
-          const valid = group.filter(g => g[sysField] && g[diaField]);
-          if (valid.length === 0) return { sys: null, dia: null };
-          const sysSum = valid.reduce((acc, curr) => acc + (Number(curr[sysField]) || 0), 0);
-          const diaSum = valid.reduce((acc, curr) => acc + (Number(curr[diaField]) || 0), 0);
-          return {
-              sys: Math.round(sysSum / valid.length),
-              dia: Math.round(diaSum / valid.length)
-          };
-       };
-
-       const bp = avgBP('bpMorningSys', 'bpMorningDia');
        const avgNapMins = avg('napMinutes');
 
        return {
@@ -116,8 +97,6 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
          brainZapLevel: avg('brainZapLevel'),
          sleepHrs: avg('sleepHrs'),
          napHrs: parseFloat((avgNapMins / 60).toFixed(1)),
-         bpSys: bp.sys,
-         bpDia: bp.dia,
        };
     });
   }, [logs, viewMode, sortedLogs]);
@@ -127,20 +106,50 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
     const date = new Date(y, m - 1, d);
     
     if (viewMode === 'monthly') {
-      return date.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
+      return date.toLocaleDateString(undefined, { month: 'short' });
     }
-    return date.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' });
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   };
 
-  // Explicit config for Tailwind scanner
-  const FILTER_CONFIG = [
-    { key: 'anxiety' as const, label: 'Anxiety', activeClass: 'bg-orange-50 text-orange-700 border-orange-200', dotClass: 'bg-orange-500' },
-    { key: 'depression' as const, label: 'Depression', activeClass: 'bg-purple-50 text-purple-700 border-purple-200', dotClass: 'bg-purple-500' },
-    { key: 'mood' as const, label: 'Mood', activeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200', dotClass: 'bg-emerald-500' },
-    { key: 'zaps' as const, label: 'Brain Zaps', activeClass: 'bg-blue-50 text-blue-700 border-blue-200', dotClass: 'bg-blue-500' },
-    { key: 'sleep' as const, label: 'Sleep', activeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200', dotClass: 'bg-indigo-500' },
-    { key: 'bp' as const, label: 'BP', activeClass: 'bg-rose-50 text-rose-700 border-rose-200', dotClass: 'bg-rose-500' },
-  ];
+  const CustomDropdown = () => (
+    <div className="relative group">
+      <select 
+        value={viewMode}
+        onChange={(e) => setViewMode(e.target.value as ViewMode)}
+        className="appearance-none bg-stone-100 hover:bg-stone-200 transition-colors pl-4 pr-9 py-2 rounded-lg text-xs font-bold text-stone-600 outline-none cursor-pointer border border-transparent focus:border-indigo-200"
+      >
+        <option value="daily">Daily View</option>
+        <option value="weekly">Weekly Avg</option>
+        <option value="monthly">Monthly Avg</option>
+      </select>
+      <ChevronDown className="w-3 h-3 text-stone-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+    </div>
+  );
+
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white p-3 rounded-xl shadow-xl border border-stone-100 text-xs">
+          <p className="font-bold text-stone-700 mb-2">{label ? formatDateAxis(label) : ''}</p>
+          {payload.map((entry: any, index: number) => (
+            <div key={index} className="flex items-center gap-2 mb-1">
+              <div 
+                className="w-2 h-2 rounded-full" 
+                style={{ backgroundColor: entry.color }}
+              />
+              <span className="text-stone-500 font-medium capitalize">
+                {entry.name}:
+              </span>
+              <span className="font-bold text-stone-700">
+                {entry.value}
+              </span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
 
   if (logs.length === 0) {
     return (
@@ -159,142 +168,131 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
   return (
     <div className="space-y-8 pb-24">
       
-      {/* Analytics Header & Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-         <div>
-            <h2 className="text-2xl font-bold text-stone-900">Analytics</h2>
-            <p className="text-stone-500 text-sm mt-1">
-              {viewMode === 'daily' && "Tracking daily correlations"}
-              {viewMode === 'weekly' && "Weekly averages"}
-              {viewMode === 'monthly' && "Long-term trends"}
-            </p>
-         </div>
-         
-         <div className="flex bg-stone-100 p-1 rounded-xl self-start sm:self-auto">
-            {(['daily', 'weekly', 'monthly'] as const).map((mode) => (
-              <button
-                key={mode}
-                onClick={() => setViewMode(mode)}
-                className={`px-4 py-1.5 rounded-lg text-xs font-bold capitalize transition-all duration-200 ${
-                  viewMode === mode 
-                    ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' 
-                    : 'text-stone-400 hover:text-stone-600'
-                }`}
-              >
-                {mode}
-              </button>
-            ))}
-         </div>
+      {/* Header */}
+      <div>
+        <h2 className="text-2xl font-bold text-stone-900">Analytics</h2>
+        <p className="text-stone-500 text-sm mt-1">
+          Tracking correlations and patterns over time
+        </p>
       </div>
 
-      {/* Master Chart Card */}
+      {/* CHART 1: SYMPTOM TRENDS (Line Chart) */}
       <div className="bg-white p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-stone-100">
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-6">
-           {/* Title & Sub */}
-           <div className="flex items-center gap-3">
-             <div className="p-2 bg-indigo-50 rounded-lg shrink-0">
-               <Layers className="w-5 h-5 text-indigo-500" />
-             </div>
-             <div>
-               <h3 className="font-bold text-stone-800">Master Timeline</h3>
-               <p className="text-xs text-stone-400">Toggle filters to customize view</p>
+        <div className="flex items-center justify-between mb-8">
+           <div>
+             <h3 className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-1">LINE CHART</h3>
+             <div className="flex items-center gap-4 text-sm font-medium">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-teal-400"></span>
+                  <span className="text-stone-600">Anxiety</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
+                  <span className="text-stone-600">Mood</span>
+                </div>
              </div>
            </div>
-           
-           {/* Interactive Filters */}
-           <div className="flex flex-wrap gap-2">
-              <div className="flex items-center gap-1.5 text-[10px] font-bold text-stone-300 uppercase tracking-wide mr-2">
-                <Filter className="w-3 h-3" />
-                Filters
-              </div>
-              {FILTER_CONFIG.map((config) => (
-                <button 
-                  key={config.key}
-                  onClick={() => toggleFilter(config.key)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200 border flex items-center gap-2 ${
-                    filters[config.key] 
-                      ? `${config.activeClass} shadow-sm` 
-                      : 'bg-white text-stone-400 border-stone-100 hover:border-stone-200 hover:bg-stone-50'
-                  }`}
-                >
-                  <div className={`w-2 h-2 rounded-full ${filters[config.key] ? config.dotClass : 'bg-stone-300'}`} />
-                  {config.label}
-                </button>
-              ))}
-           </div>
+           <CustomDropdown />
         </div>
         
-        <div className="h-96 w-full">
+        <div className="h-72 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={chartData} margin={{ top: 10, right: 0, left: -25, bottom: 0 }} barGap={2}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f5f5f4" />
+            <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
               <XAxis 
                 dataKey="date" 
                 tickFormatter={formatDateAxis}
-                stroke="#d6d3d1"
-                fontSize={10}
-                tickMargin={10}
-                tickLine={false}
                 axisLine={false}
+                tickLine={false}
+                tick={{fill: '#9ca3af', fontSize: 10, fontWeight: 500}}
+                dy={10}
                 interval={viewMode === 'daily' ? 'preserveStartEnd' : 0}
               />
-              
-              {/* Left Axis: Sleep (0-12), Symptoms (0-10), Zaps (0-3) */}
-              <YAxis yAxisId="left" stroke="#94a3b8" fontSize={10} domain={[0, 12]} tickLine={false} axisLine={false} />
-              
-              {/* Right Axis: BP (60-180) - Only show if BP is enabled */}
-              {filters.bp && (
-                 <YAxis yAxisId="right" orientation="right" stroke="#fda4af" fontSize={10} domain={[60, 'auto']} tickLine={false} axisLine={false} />
-              )}
-
-              <Tooltip 
-                cursor={{fill: '#f5f5f4'}}
-                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', padding: '12px' }}
-                labelFormatter={(date) => {
-                    const [y, m, d] = date.split('-').map(Number);
-                    const dObj = new Date(y, m - 1, d);
-                    if (viewMode === 'monthly') return dObj.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
-                    return dObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-                }}
-                formatter={(value: any, name: string) => {
-                  if (name === 'Night Sleep' || name === 'Naps') return [`${value}h`, name];
-                  if (name === 'Systolic' || name === 'Diastolic') return [`${value} mmHg`, name];
-                  if (name === 'Brain Zaps') return [value, name];
-                  return [value, name]; // Ratings
-                }}
+              <YAxis 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{fill: '#9ca3af', fontSize: 10, fontWeight: 500}} 
+                domain={[0, 10]}
               />
+              <Tooltip content={<CustomTooltip />} cursor={{stroke: '#e2e8f0', strokeWidth: 1}} />
+              <Line 
+                type="monotone" 
+                dataKey="anxietyLevel" 
+                name="Anxiety"
+                stroke="#2dd4bf" 
+                strokeWidth={3} 
+                dot={{r: 4, strokeWidth: 2, fill: '#fff', stroke: '#2dd4bf'}} 
+                activeDot={{r: 6, strokeWidth: 0, fill: '#2dd4bf'}}
+              />
+              <Line 
+                type="monotone" 
+                dataKey="moodLevel" 
+                name="Mood"
+                stroke="#6366f1" 
+                strokeWidth={3} 
+                dot={{r: 4, strokeWidth: 2, fill: '#fff', stroke: '#6366f1'}} 
+                activeDot={{r: 6, strokeWidth: 0, fill: '#6366f1'}}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
 
-              {/* Background: Sleep & Naps - Rendered first to be on left or background */}
-              {filters.sleep && (
-                <>
-                  <Bar yAxisId="left" dataKey="sleepHrs" name="Night Sleep" stackId="sleep" fill="#c7d2fe" radius={[0,0,4,4]} barSize={viewMode === 'daily' ? 24 : 12} />
-                  <Bar yAxisId="left" dataKey="napHrs" name="Naps" stackId="sleep" fill="#818cf8" radius={[4,4,0,0]} barSize={viewMode === 'daily' ? 24 : 12} />
-                </>
-              )}
-
-              {/* Symptoms Bars - Grouped by default by Recharts (no stackId) */}
-              {filters.anxiety && (
-                <Bar yAxisId="left" dataKey="anxietyLevel" name="Anxiety" fill="#f97316" radius={[4, 4, 0, 0]} barSize={viewMode === 'daily' ? 14 : 8} />
-              )}
-              {filters.depression && (
-                <Bar yAxisId="left" dataKey="depressionLevel" name="Depression" fill="#a855f7" radius={[4, 4, 0, 0]} barSize={viewMode === 'daily' ? 14 : 8} />
-              )}
-              {filters.mood && (
-                <Bar yAxisId="left" dataKey="moodLevel" name="Mood" fill="#10b981" radius={[4, 4, 0, 0]} barSize={viewMode === 'daily' ? 14 : 8} />
-              )}
-              {filters.zaps && (
-                <Bar yAxisId="left" dataKey="brainZapLevel" name="Brain Zaps" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={viewMode === 'daily' ? 14 : 8} />
-              )}
-
-              {/* Blood Pressure (Right Axis) */}
-              {filters.bp && (
-                <>
-                  <Line yAxisId="right" type="monotone" dataKey="bpSys" name="Systolic" stroke="#f43f5e" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
-                  <Line yAxisId="right" type="monotone" dataKey="bpDia" name="Diastolic" stroke="#fb7185" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
-                </>
-              )}
-
-            </ComposedChart>
+      {/* CHART 2: SLEEP ANALYSIS (Stacked Bar Chart) */}
+      <div className="bg-white p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-stone-100">
+        <div className="flex items-center justify-between mb-8">
+           <div>
+             <h3 className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-1">STACKED BAR CHART</h3>
+             <div className="flex items-center gap-4 text-sm font-medium">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-teal-400"></span>
+                  <span className="text-stone-600">Night Sleep</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-sky-300"></span>
+                  <span className="text-stone-600">Naps</span>
+                </div>
+             </div>
+           </div>
+           <CustomDropdown />
+        </div>
+        
+        <div className="h-72 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} barGap={0}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+              <XAxis 
+                dataKey="date" 
+                tickFormatter={formatDateAxis}
+                axisLine={false}
+                tickLine={false}
+                tick={{fill: '#9ca3af', fontSize: 10, fontWeight: 500}}
+                dy={10}
+                interval={viewMode === 'daily' ? 'preserveStartEnd' : 0}
+              />
+              <YAxis 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{fill: '#9ca3af', fontSize: 10, fontWeight: 500}} 
+              />
+              <Tooltip content={<CustomTooltip />} cursor={{fill: '#f8fafc'}} />
+              
+              <Bar 
+                dataKey="sleepHrs" 
+                name="Sleep"
+                stackId="a" 
+                fill="#2dd4bf" 
+                barSize={viewMode === 'daily' ? 12 : 32}
+              />
+              <Bar 
+                dataKey="napHrs" 
+                name="Naps"
+                stackId="a" 
+                fill="#7dd3fc" 
+                radius={[4, 4, 0, 0]}
+                barSize={viewMode === 'daily' ? 12 : 32}
+              />
+            </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
@@ -333,11 +331,6 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
                       <span className="bg-stone-100 text-stone-600 px-2 py-0.5 rounded text-xs font-bold w-fit">
                         {log.lDose}mg
                       </span>
-                      {log.bDose && (
-                        <span className="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded text-[10px] font-bold w-fit">
-                          {log.bDose}
-                        </span>
-                      )}
                     </div>
                   </td>
                   <td className="p-4 font-medium text-stone-600">
@@ -379,8 +372,8 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
                        <span>{log.bpMorningSys ? `${log.bpMorningSys}/${log.bpMorningDia}` : '-'}</span>
                        {log.bpMorningPulse && (
                          <div className="flex items-center gap-1 mt-0.5 text-stone-400">
-                           <span className="text-[10px] font-bold">{log.bpMorningPulse} bpm</span>
-                           {log.bpMorningIrregular && <Zap className="w-2.5 h-2.5 text-amber-500 fill-amber-500" />}
+                           <Zap className="w-2.5 h-2.5 text-amber-500 fill-amber-500" />
+                           <span className="text-[10px] font-bold">{log.bpMorningPulse}</span>
                          </div>
                        )}
                     </div>

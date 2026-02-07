@@ -9,7 +9,7 @@ error_reporting(E_ALL);
 $host = 'localhost';
 $db   = 'u321644199_taper';    
 $user = 'u321644199_agon.v';   
-$pass = '!Africa95!';         
+$pass = '07022026Agon';         
 
 // Trim whitespace just in case of copy-paste errors
 $host = trim($host);
@@ -97,7 +97,7 @@ $pass = trim($pass);
             echo "<li>2. Go to <strong>Databases</strong>.</li>";
             echo "<li>3. Find user <code>$user</code>.</li>";
             echo "<li>4. Click the three dots ⋮ and choose <strong>Change Password</strong>.</li>";
-            echo "<li>5. Set the password to <code>!Africa95!</code> exactly, or update this file.</li>";
+            echo "<li>5. Set the password to <code>$pass</code> exactly, or update this file.</li>";
             echo "<li><strong>Check User Permissions:</strong> Did you assign the user to the database? In Hostinger, ensure user <code>$user</code> is linked to database <code>$db</code>.</li>";
         } elseif (strpos($msg, 'Unknown database') !== false) {
             echo "<li><strong>Wrong Database Name:</strong> The database <code>$db</code> does not exist. Check for typos.</li>";

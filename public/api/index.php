@@ -26,8 +26,8 @@ $db   = trim('u321644199_taper');
 $user = trim('u321644199_agon.v');   
 
 // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-// TODO: ENSURE THIS MATCHES HOSTINGER EXACTLY
-$pass = trim('!Africa95!'); 
+// UPDATED PASSWORD
+$pass = trim('07022026Agon'); 
 // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
 $charset = 'utf8mb4';

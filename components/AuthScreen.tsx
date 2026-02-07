@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { AuthResponse } from '../types';
-import { Activity, ArrowRight, Lock, User, CheckCircle2, AlertCircle, Loader2, Wrench } from 'lucide-react';
+import { Activity, Lock, User, AlertCircle, Loader2, ArrowRight } from 'lucide-react';
 
 interface AuthScreenProps {
   onSuccess: (auth: AuthResponse) => void;
@@ -20,7 +20,6 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
   // UI State
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState<'checking' | 'online' | 'error'>('checking');
-  const [statusMsg, setStatusMsg] = useState('');
 
   // Check Database Connection on Mount
   useEffect(() => {
@@ -31,7 +30,6 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
         setStatus('online');
       } else {
         setStatus('error');
-        setStatusMsg(result.message || 'Unknown Error');
       }
     };
     check();
@@ -92,17 +90,10 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
           <div className="mb-6 bg-red-50 border border-red-100 p-4 rounded-xl flex items-start gap-3 animate-in fade-in slide-in-from-top-2 shadow-sm">
             <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
             <div>
-              <h3 className="text-sm font-bold text-red-700">Database Connection Failed</h3>
+              <h3 className="text-sm font-bold text-red-700">Service Unavailable</h3>
               <p className="text-xs text-red-600 mt-1 leading-relaxed">
-                The app cannot connect to the server database. 
+                Unable to connect to the secure database. Please try again later.
               </p>
-              <a 
-                href="/test.php" 
-                target="_blank" 
-                className="mt-2 inline-flex items-center gap-1 text-[10px] font-bold bg-white border border-red-200 text-red-600 px-2 py-1 rounded hover:bg-red-50 transition-colors"
-              >
-                <Wrench className="w-3 h-3" /> Run Diagnostic Tool
-              </a>
             </div>
           </div>
         )}
@@ -164,9 +155,9 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                           className="w-full bg-stone-50 border border-stone-200 rounded-xl py-3 pl-10 pr-4 text-stone-800 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all placeholder:text-stone-300"
-                          placeholder={mode === 'register' ? "Min 6 characters" : "Enter password"}
+                          placeholder="••••••••"
                           required
-                          autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+                          autoComplete="current-password"
                        />
                     </div>
                   </div>
@@ -176,60 +167,60 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
                     <div className="space-y-1 animate-in fade-in slide-in-from-top-2">
                       <label className="text-xs font-bold text-stone-400 uppercase tracking-wide ml-1">Confirm Password</label>
                       <div className="relative group">
-                         <Lock className="absolute left-3 top-3.5 w-5 h-5 text-stone-300 group-focus-within:text-indigo-400 transition-colors" />
-                         <input 
+                        <Lock className="absolute left-3 top-3.5 w-5 h-5 text-stone-300 group-focus-within:text-indigo-400 transition-colors" />
+                        <input 
                             type="password" 
                             value={confirmPass}
                             onChange={(e) => setConfirmPass(e.target.value)}
                             className="w-full bg-stone-50 border border-stone-200 rounded-xl py-3 pl-10 pr-4 text-stone-800 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all placeholder:text-stone-300"
-                            placeholder="Re-type password"
-                            required
+                            placeholder="••••••••"
+                            required={mode === 'register'}
                             autoComplete="new-password"
-                         />
+                        />
                       </div>
                     </div>
                   )}
 
-                  {/* Action Button */}
+                  {/* Submit Button */}
                   <button 
                     type="submit"
                     disabled={isLoading || status === 'error'}
-                    className="w-full bg-stone-900 text-white py-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-black transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:active:scale-100 mt-2"
+                    className="w-full bg-stone-900 text-white py-4 rounded-xl font-bold text-sm shadow-lg shadow-stone-200 hover:bg-black hover:shadow-xl transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-4"
                   >
                     {isLoading ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        {mode === 'login' ? 'Signing In...' : 'Creating Account...'}
+                      </>
                     ) : (
                       <>
-                        {mode === 'register' ? 'Create Account' : 'Sign In'} <ArrowRight className="w-4 h-4" />
+                        {mode === 'login' ? 'Sign In' : 'Create Account'}
+                        <ArrowRight className="w-4 h-4" />
                       </>
                     )}
                   </button>
 
               </form>
            </div>
+           
+           {/* Footer */}
+           <div className="bg-stone-50 p-4 text-center border-t border-stone-100">
+             <p className="text-xs text-stone-400 font-medium">
+               {mode === 'login' ? "Don't have an account yet?" : "Already have an account?"}
+               <button 
+                 onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
+                 className="ml-1 text-indigo-600 font-bold hover:underline"
+               >
+                 {mode === 'login' ? "Register Now" : "Sign In"}
+               </button>
+             </p>
+           </div>
+
         </div>
         
-        {/* Footer Status */}
-        <div className="mt-8 text-center flex items-center justify-center gap-2">
-           {status === 'checking' && (
-              <>
-                 <Loader2 className="w-3 h-3 animate-spin text-stone-400" />
-                 <span className="text-[10px] text-stone-400 font-bold uppercase tracking-widest">Checking Server...</span>
-              </>
-           )}
-           {status === 'online' && (
-              <>
-                 <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
-                 <span className="text-[10px] text-emerald-600 font-bold uppercase tracking-widest">System Online</span>
-              </>
-           )}
-           {status === 'error' && (
-              <>
-                 <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                 <span className="text-[10px] text-red-500 font-bold uppercase tracking-widest">Connection Error</span>
-              </>
-           )}
-        </div>
+        <p className="text-center text-[10px] text-stone-400 mt-6 font-medium">
+          Protected by End-to-End Logic & Secure Storage
+        </p>
 
       </div>
     </div>

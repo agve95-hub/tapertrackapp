@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { DailyLogEntry } from '../types';
 import { 
-  ComposedChart, 
+  LineChart, 
+  BarChart, 
   Line, 
   Bar, 
   XAxis, 
@@ -11,7 +12,7 @@ import {
   ResponsiveContainer,
   Legend
 } from 'recharts';
-import { Calendar, FileText, ChevronDown, TrendingUp } from 'lucide-react';
+import { Calendar, FileText, ChevronDown, TrendingUp, Moon, Zap, CloudRain, Smile, Activity } from 'lucide-react';
 
 interface HistoryAnalyticsProps {
   logs: DailyLogEntry[];
@@ -121,6 +122,20 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
     return null;
   };
 
+  const ChartCard = ({ title, icon: Icon, colorClass, children }: any) => (
+    <div className="bg-white p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-stone-100">
+      <div className="flex items-center gap-3 mb-6">
+         <div className={`p-2.5 rounded-xl ${colorClass}`}>
+           <Icon className="w-5 h-5" />
+         </div>
+         <h3 className="text-lg font-bold text-stone-800">{title}</h3>
+      </div>
+      <div className="h-64 w-full">
+        {children}
+      </div>
+    </div>
+  );
+
   if (logs.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-32 text-center px-4">
@@ -136,51 +151,35 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
   }
 
   return (
-    <div className="space-y-6 pb-24">
+    <div className="space-y-8 pb-24">
       
-      {/* Header */}
-      <div className="flex items-end justify-between">
+      {/* Header & Controls */}
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-stone-900">Analytics</h2>
           <p className="text-stone-500 text-sm mt-1">
-            Tracking correlations over time
+            Correlations over time
           </p>
+        </div>
+        
+        <div className="relative group">
+           <select 
+             value={viewMode}
+             onChange={(e) => setViewMode(e.target.value as ViewMode)}
+             className="appearance-none bg-white hover:bg-stone-50 transition-colors pl-4 pr-10 py-2.5 rounded-xl border border-stone-200 text-xs font-bold text-stone-600 outline-none cursor-pointer focus:ring-2 focus:ring-indigo-100 shadow-sm"
+           >
+             <option value="daily">Daily View</option>
+             <option value="weekly">Weekly Avg</option>
+             <option value="monthly">Monthly Avg</option>
+           </select>
+           <ChevronDown className="w-3.5 h-3.5 text-stone-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
       </div>
 
-      {/* COMBINED CHART CARD */}
-      <div className="bg-white p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-stone-100 relative">
-        
-        {/* Card Header & Filter */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-           <div className="flex items-center gap-2">
-              <div className="bg-indigo-50 p-2 rounded-lg text-indigo-600">
-                <TrendingUp className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-stone-800 uppercase tracking-wide">Wellness Trends</h3>
-                <p className="text-[10px] text-stone-400 font-medium">Sleep vs. Symptoms</p>
-              </div>
-           </div>
-           
-           <div className="relative group">
-              <select 
-                value={viewMode}
-                onChange={(e) => setViewMode(e.target.value as ViewMode)}
-                className="appearance-none bg-stone-100 hover:bg-stone-200 transition-colors pl-4 pr-10 py-2 rounded-xl text-xs font-bold text-stone-600 outline-none cursor-pointer focus:ring-2 focus:ring-indigo-100 border-none"
-              >
-                <option value="daily">Daily View</option>
-                <option value="weekly">Weekly Avg</option>
-                <option value="monthly">Monthly Avg</option>
-              </select>
-              <ChevronDown className="w-3.5 h-3.5 text-stone-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-           </div>
-        </div>
-        
-        {/* Chart */}
-        <div className="h-80 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+      {/* Row 1: Sleep Analysis */}
+      <ChartCard title="Sleep Duration" icon={Moon} colorClass="bg-indigo-50 text-indigo-600">
+        <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
               <XAxis 
                 dataKey="date" 
@@ -191,96 +190,83 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
                 dy={10}
                 interval={viewMode === 'daily' ? 'preserveStartEnd' : 0}
               />
-              
-              {/* Left Axis: Scores 0-10 */}
               <YAxis 
-                yAxisId="left"
-                orientation="left"
-                axisLine={false} 
-                tickLine={false} 
-                tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 500}} 
-                domain={[0, 10]}
-                ticks={[0, 2, 4, 6, 8, 10]}
-              />
-              
-              {/* Right Axis: Hours 0-12 (Sleep) */}
-              <YAxis 
-                yAxisId="right"
-                orientation="right"
                 axisLine={false} 
                 tickLine={false} 
                 tick={{fill: '#cbd5e1', fontSize: 10, fontWeight: 500}} 
                 domain={[0, 12]}
-                hide={false}
               />
-
               <Tooltip content={<CustomTooltip />} cursor={{fill: '#f8fafc', opacity: 0.5}} />
+              <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '11px', fontWeight: 600, color: '#64748b' }} iconType="circle" />
               
-              <Legend 
-                wrapperStyle={{ paddingTop: '20px', fontSize: '11px', fontWeight: 600, color: '#64748b' }} 
-                iconType="circle"
-              />
-              
-              {/* BARS: Sleep */}
-              <Bar 
-                yAxisId="right"
-                dataKey="sleepHrs" 
-                name="Sleep (hrs)"
-                stackId="a" 
-                fill="#cbd5e1" 
-                barSize={viewMode === 'daily' ? 12 : 24}
-                opacity={0.6}
-              />
-              <Bar 
-                yAxisId="right"
-                dataKey="napHrs" 
-                name="Naps"
-                stackId="a" 
-                fill="#94a3b8" 
-                radius={[4, 4, 0, 0]}
-                barSize={viewMode === 'daily' ? 12 : 24}
-                opacity={0.6}
-              />
+              <Bar dataKey="sleepHrs" name="Sleep (hrs)" stackId="a" fill="#6366f1" radius={[0, 0, 4, 4]} barSize={viewMode === 'daily' ? 12 : 24} />
+              <Bar dataKey="napHrs" name="Naps (hrs)" stackId="a" fill="#c7d2fe" radius={[4, 4, 0, 0]} barSize={viewMode === 'daily' ? 12 : 24} />
+            </BarChart>
+        </ResponsiveContainer>
+      </ChartCard>
 
-              {/* LINES: Symptoms */}
-              <Line 
-                yAxisId="left"
-                type="monotone" 
-                dataKey="anxietyLevel" 
-                name="Anxiety"
-                stroke="#f43f5e" 
-                strokeWidth={2.5} 
-                dot={false}
-                activeDot={{r: 6}}
+      {/* Row 2: Mood vs Anxiety */}
+      <ChartCard title="Emotional State" icon={Activity} colorClass="bg-teal-50 text-teal-600">
+        <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+              <XAxis 
+                dataKey="date" 
+                tickFormatter={formatDateAxis}
+                axisLine={false}
+                tickLine={false}
+                tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 500}}
+                dy={10}
+                interval={viewMode === 'daily' ? 'preserveStartEnd' : 0}
               />
-              <Line 
-                yAxisId="left"
-                type="monotone" 
-                dataKey="moodLevel" 
-                name="Mood"
-                stroke="#10b981" 
-                strokeWidth={2.5} 
-                dot={false}
-                activeDot={{r: 6}}
+              <YAxis 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{fill: '#cbd5e1', fontSize: 10, fontWeight: 500}} 
+                domain={[0, 10]}
+                ticks={[0, 2, 4, 6, 8, 10]}
               />
-              <Line 
-                yAxisId="left"
-                type="monotone" 
-                dataKey="brainZapLevel" 
-                name="Zaps"
-                stroke="#6366f1" 
-                strokeWidth={2} 
-                strokeDasharray="4 4"
-                dot={false}
-                activeDot={{r: 6}}
+              <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#cbd5e1', strokeWidth: 1, strokeDasharray: '4 4' }} />
+              <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '11px', fontWeight: 600, color: '#64748b' }} iconType="circle" />
+              
+              <Line type="monotone" dataKey="moodLevel" name="Mood" stroke="#10b981" strokeWidth={3} dot={false} activeDot={{r: 6}} />
+              <Line type="monotone" dataKey="anxietyLevel" name="Anxiety" stroke="#f59e0b" strokeWidth={3} dot={false} activeDot={{r: 6}} />
+            </LineChart>
+        </ResponsiveContainer>
+      </ChartCard>
+
+      {/* Row 3: Physical Symptoms */}
+      <ChartCard title="Symptom Tracking" icon={Zap} colorClass="bg-rose-50 text-rose-600">
+        <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+              <XAxis 
+                dataKey="date" 
+                tickFormatter={formatDateAxis}
+                axisLine={false}
+                tickLine={false}
+                tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 500}}
+                dy={10}
+                interval={viewMode === 'daily' ? 'preserveStartEnd' : 0}
               />
-            </ComposedChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+              <YAxis 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{fill: '#cbd5e1', fontSize: 10, fontWeight: 500}} 
+                domain={[0, 10]}
+                ticks={[0, 2, 4, 6, 8, 10]}
+              />
+              <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#cbd5e1', strokeWidth: 1, strokeDasharray: '4 4' }} />
+              <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '11px', fontWeight: 600, color: '#64748b' }} iconType="circle" />
+              
+              <Line type="monotone" dataKey="depressionLevel" name="Depression" stroke="#a855f7" strokeWidth={2} dot={false} activeDot={{r: 6}} />
+              <Line type="step" dataKey="brainZapLevel" name="Brain Zaps" stroke="#f43f5e" strokeWidth={2} strokeDasharray="4 4" dot={false} activeDot={{r: 6}} />
+            </LineChart>
+        </ResponsiveContainer>
+      </ChartCard>
 
       {/* RAW DATA TABLE */}
-      <div className="bg-white rounded-3xl shadow-sm border border-stone-100 overflow-hidden">
+      <div className="bg-white rounded-3xl shadow-sm border border-stone-100 overflow-hidden mt-8">
         <div className="p-5 border-b border-stone-100 flex items-center justify-between bg-stone-50/30">
            <h3 className="font-bold text-stone-800 flex items-center gap-2 text-sm">
              <Calendar className="w-4 h-4 text-stone-400" />

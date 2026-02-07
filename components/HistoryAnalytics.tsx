@@ -33,12 +33,9 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
     const formatEntry = (l: DailyLogEntry) => ({
       ...l,
       napHrs: l.napMinutes ? parseFloat((l.napMinutes / 60).toFixed(1)) : 0,
-      bpSys: l.bpMorningSys || null,
-      bpDia: l.bpMorningDia || null,
       brainZapLevel: l.brainZapLevel || 0,
       anxietyLevel: l.anxietyLevel || 0,
       moodLevel: l.moodLevel || 0,
-      depressionLevel: l.depressionLevel || 0,
       sleepHrs: l.sleepHrs || 0
     });
 
@@ -83,7 +80,6 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
          date: dateKey,
          anxietyLevel: avg('anxietyLevel'),
          moodLevel: avg('moodLevel'),
-         depressionLevel: avg('depressionLevel'),
          brainZapLevel: avg('brainZapLevel'),
          sleepHrs: avg('sleepHrs'),
          napHrs: parseFloat((avgNapMins / 60).toFixed(1)),
@@ -138,7 +134,7 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
   return (
     <div className="space-y-8 pb-24">
       
-      {/* Page Header */}
+      {/* Page Header - Removed Dropdown from here */}
       <div>
         <h2 className="text-2xl font-bold text-stone-900">Analytics</h2>
         <p className="text-stone-500 text-sm mt-1">
@@ -156,7 +152,7 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
                    <Activity className="w-5 h-5" />
                 </div>
                 <div>
-                   <h3 className="text-lg font-bold text-stone-800">Wellness Trends</h3>
+                   <h3 className="text-lg font-bold text-stone-800 uppercase tracking-tight">WELLNESS TRENDS</h3>
                    <p className="text-xs font-medium text-stone-400">Sleep vs. Symptoms</p>
                 </div>
              </div>
@@ -211,16 +207,63 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
                   />
 
                   <Tooltip content={<CustomTooltip />} cursor={{fill: '#f8fafc', opacity: 0.5}} />
-                  <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '11px', fontWeight: 600, color: '#64748b' }} iconType="circle" />
+                  <Legend 
+                    wrapperStyle={{ paddingTop: '20px', fontSize: '11px', fontWeight: 600, color: '#64748b' }} 
+                    iconType="circle" 
+                  />
                   
                   {/* Sleep Data (Right Axis) - Background Bars */}
-                  <Bar yAxisId="right" dataKey="sleepHrs" name="Sleep (hrs)" stackId="a" fill="#e2e8f0" radius={[0, 0, 4, 4]} barSize={20} />
-                  <Bar yAxisId="right" dataKey="napHrs" name="Naps" stackId="a" fill="#94a3b8" radius={[4, 4, 0, 0]} barSize={20} />
+                  {/* Note: barSize of 12 for daily matches the thin elegant look, larger for weekly */}
+                  <Bar 
+                    yAxisId="right" 
+                    dataKey="sleepHrs" 
+                    name="Sleep (hrs)" 
+                    stackId="a" 
+                    fill="#cbd5e1" 
+                    radius={[0, 0, 4, 4]} 
+                    barSize={viewMode === 'daily' ? 12 : 24} 
+                  />
+                  <Bar 
+                    yAxisId="right" 
+                    dataKey="napHrs" 
+                    name="Naps" 
+                    stackId="a" 
+                    fill="#64748b" 
+                    radius={[4, 4, 0, 0]} 
+                    barSize={viewMode === 'daily' ? 12 : 24} 
+                  />
 
                   {/* Symptom Data (Left Axis) - Lines/Dots */}
-                  <Line yAxisId="left" type="monotone" dataKey="anxietyLevel" name="Anxiety" stroke="#f43f5e" strokeWidth={3} dot={{r: 4, strokeWidth: 2, fill: '#fff'}} activeDot={{r: 6}} />
-                  <Line yAxisId="left" type="monotone" dataKey="moodLevel" name="Mood" stroke="#10b981" strokeWidth={3} dot={{r: 4, strokeWidth: 2, fill: '#fff'}} activeDot={{r: 6}} />
-                  <Line yAxisId="left" type="monotone" dataKey="brainZapLevel" name="Zaps" stroke="#6366f1" strokeWidth={3} dot={{r: 4, strokeWidth: 2, fill: '#fff'}} activeDot={{r: 6}} />
+                  <Line 
+                    yAxisId="left" 
+                    type="monotone" 
+                    dataKey="anxietyLevel" 
+                    name="Anxiety" 
+                    stroke="#f43f5e" 
+                    strokeWidth={3} 
+                    dot={{r: 4, strokeWidth: 2, fill: '#fff'}} 
+                    activeDot={{r: 6}} 
+                  />
+                  <Line 
+                    yAxisId="left" 
+                    type="monotone" 
+                    dataKey="moodLevel" 
+                    name="Mood" 
+                    stroke="#10b981" 
+                    strokeWidth={3} 
+                    dot={{r: 4, strokeWidth: 2, fill: '#fff'}} 
+                    activeDot={{r: 6}} 
+                  />
+                  <Line 
+                    yAxisId="left" 
+                    type="monotone" 
+                    dataKey="brainZapLevel" 
+                    name="Zaps" 
+                    stroke="#6366f1" 
+                    strokeWidth={3} 
+                    dot={{r: 4, strokeWidth: 2, fill: '#fff'}} 
+                    activeDot={{r: 6}} 
+                  />
                 </ComposedChart>
             </ResponsiveContainer>
           </div>

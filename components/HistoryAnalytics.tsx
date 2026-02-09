@@ -58,6 +58,7 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
       sleepHrs: l.sleepHrs || 0,
       anxietyLevel: l.anxietyLevel || 0,
       moodLevel: l.moodLevel || 0,
+      depressionLevel: l.depressionLevel || 0,
     });
 
     if (viewMode === 'daily') {
@@ -99,6 +100,7 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
             : new Date(dateKey).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
          anxietyLevel: avg('anxietyLevel'),
          moodLevel: avg('moodLevel'),
+         depressionLevel: avg('depressionLevel'),
          sleepHrs: avg('sleepHrs'),
          lDose: avg('lDose'),
        };
@@ -108,14 +110,14 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white p-4 rounded-xl shadow-xl border border-stone-100 text-xs">
+        <div className="bg-white p-4 rounded-xl shadow-xl border border-stone-100 text-xs z-50">
           <p className="font-bold text-stone-900 mb-3 text-sm">{label}</p>
           <div className="space-y-2">
              {payload.map((entry: any, index: number) => (
                 <div key={index} className="flex items-center gap-3 justify-between min-w-[140px]">
                   <div className="flex items-center gap-2">
                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
-                     <span className="text-stone-500 font-medium">{entry.name}</span>
+                     <span className="text-stone-500 font-medium capitalize">{entry.name}</span>
                   </div>
                   <span className="font-bold text-stone-800 text-sm">{Number(entry.value).toFixed(1)}</span>
                 </div>
@@ -230,11 +232,11 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
            <div className="flex items-center justify-between mb-4">
               <div>
                  <h3 className="text-lg font-bold text-stone-800">Symptom Trends</h3>
-                 <p className="text-xs font-medium text-stone-400 mt-0.5">Sleep vs Anxiety</p>
+                 <p className="text-xs font-medium text-stone-400 mt-0.5">Correlation between Sleep, Anxiety, Mood & Depression</p>
               </div>
            </div>
 
-           <div className="h-[200px] w-full">
+           <div className="h-[250px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                  <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -249,12 +251,19 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
                        axisLine={false}
                        tickLine={false}
                        tick={{fill: '#cbd5e1', fontSize: 11, fontWeight: 600}}
-                       domain={[0, 10]}
+                       domain={[0, 12]}
                     />
                     <Tooltip content={<CustomTooltip />} />
+                    <Legend 
+                      iconType="circle" 
+                      iconSize={8}
+                      wrapperStyle={{paddingTop: '20px', fontSize: '11px', fontWeight: 'bold'}}
+                    />
                     
-                    <Line type="monotone" dataKey="sleepHrs" name="Sleep" stroke="#1e3a8a" strokeWidth={3} dot={false} />
-                    <Line type="monotone" dataKey="anxietyLevel" name="Anxiety" stroke="#2dd4bf" strokeWidth={3} dot={false} />
+                    <Line type="monotone" dataKey="sleepHrs" name="Sleep (hrs)" stroke="#3b82f6" strokeWidth={3} dot={false} strokeDasharray="4 4" />
+                    <Line type="monotone" dataKey="anxietyLevel" name="Anxiety (1-10)" stroke="#14b8a6" strokeWidth={3} dot={false} />
+                    <Line type="monotone" dataKey="moodLevel" name="Mood (1-10)" stroke="#f59e0b" strokeWidth={3} dot={false} />
+                    <Line type="monotone" dataKey="depressionLevel" name="Depression (1-10)" stroke="#64748b" strokeWidth={3} dot={false} />
                  </LineChart>
               </ResponsiveContainer>
            </div>

@@ -321,7 +321,7 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
              Medication & Routine
            </h3>
            
-           <div className="space-y-4">
+           <div className="space-y-8">
               {DAILY_SCHEDULE.map((slot, index) => {
                 const isCurrent = slot.id === getCurrentPeriodId() && new Date(currentDate).toDateString() === new Date().toDateString();
                 const allDone = slot.items.every(item => formData.completedItems[`${slot.id}-${item}`]);
@@ -330,9 +330,9 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
                 const isLast = index === DAILY_SCHEDULE.length - 1;
 
                 return (
-                  <div key={slot.id} className="relative pl-8">
+                  <div key={slot.id} className="relative pl-12">
                     {/* Timeline Line */}
-                    {!isLast && <div className="absolute left-[15px] top-10 bottom-[-16px] w-0.5 bg-stone-100"></div>}
+                    {!isLast && <div className="absolute left-[15px] top-10 bottom-[-32px] w-0.5 bg-stone-100"></div>}
                     
                     {/* Timeline Dot */}
                     <div className={`absolute left-0 top-6 w-8 h-8 rounded-full border-2 flex items-center justify-center z-10 bg-white transition-colors ${

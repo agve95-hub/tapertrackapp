@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { TaperStep } from '../types';
 import { TAPER_SCHEDULE as DEFAULT_SCHEDULE } from '../constants';
@@ -206,13 +207,23 @@ const TaperGuide: React.FC<TaperGuideProps> = ({
                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
                     {/* Dose & Weeks */}
                     <div className="flex items-center gap-4 min-w-[150px]">
-                       <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg shrink-0 ${
-                         step.isCritical ? 'bg-red-100 text-red-700' : 'bg-indigo-50 text-indigo-700'
+                       <div className={`w-14 h-14 rounded-xl flex flex-col items-center justify-center shrink-0 leading-none transition-colors ${
+                         step.isCritical 
+                           ? 'bg-red-50 text-red-700 border border-red-100' 
+                           : 'bg-indigo-50 text-indigo-700 border border-indigo-100'
                        }`}>
-                          {step.dose}
-                          <span className="text-[10px] ml-0.5 opacity-70">
-                            {typeof step.dose === 'number' ? 'mg' : ''}
-                          </span>
+                          {typeof step.dose === 'number' ? (
+                             <>
+                               <span className="font-bold text-lg">{step.dose}</span>
+                               <span className="text-[10px] opacity-70 font-semibold mt-0.5">mg</span>
+                             </>
+                          ) : (
+                             // Stacked layout for "Below 2.0"
+                             <>
+                               <span className="text-[9px] font-bold uppercase leading-tight">{step.dose.toString().split(' ')[0]}</span>
+                               <span className="text-sm font-bold leading-none mt-0.5">{step.dose.toString().split(' ')[1]}</span>
+                             </>
+                          )}
                        </div>
                        <div>
                          <div className="text-xs text-stone-400 font-bold uppercase tracking-wider mb-0.5">

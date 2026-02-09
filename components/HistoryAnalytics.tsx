@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState } from 'react';
 import { DailyLogEntry } from '../types';
 import { 
@@ -179,7 +180,7 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
       {/* DASHBOARD GRID */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         
-        {/* CARD 1: CURRENT STATUS (Matches "Supply" Card) */}
+        {/* CARD 1: CURRENT STATUS */}
         <div className="bg-white p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-stone-100 md:col-span-1 flex flex-col justify-between">
             <div>
                <div className="flex justify-between items-start mb-2">
@@ -216,7 +217,7 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
             </div>
         </div>
 
-        {/* CARD 2: SYMPTOM HEALTH (Matches "Inventory Health" Card) */}
+        {/* CARD 2: SYMPTOM HEALTH */}
         <div className="bg-white p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-stone-100 md:col-span-2">
             <div className="flex justify-between items-center mb-6">
                <div>
@@ -255,7 +256,6 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
                      <span className="text-sm font-bold text-teal-600">{stats?.avgAnxiety.toFixed(1)} / 10</span>
                   </div>
                   <div className="w-full bg-stone-100 rounded-full h-2.5 overflow-hidden">
-                     {/* Invert color logic: Low anxiety is good (full bar visual for 'Health' might be tricky, let's just show raw level) */}
                      <div 
                         className="h-full rounded-full bg-gradient-to-r from-teal-400 to-teal-500" 
                         style={{ width: `${((stats?.avgAnxiety || 0) / 10) * 100}%` }}
@@ -281,7 +281,7 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
             </div>
         </div>
 
-        {/* CARD 3: MAIN CHART (Matches the Graph in Image 2) */}
+        {/* CARD 3: MAIN CHART */}
         <div className="bg-white p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-stone-100 md:col-span-3">
            <div className="flex items-center justify-between mb-8">
               <div>
@@ -309,13 +309,6 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
            <div className="h-[350px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                  <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <defs>
-                       {/* Gradients if we decide to use Area later, kept for reference */}
-                       <linearGradient id="colorTeal" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#2dd4bf" stopOpacity={0.1}/>
-                          <stop offset="95%" stopColor="#2dd4bf" stopOpacity={0}/>
-                       </linearGradient>
-                    </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                     <XAxis 
                        dataKey="dateFormatted" 
@@ -329,11 +322,10 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
                        axisLine={false}
                        tickLine={false}
                        tick={{fill: '#cbd5e1', fontSize: 11, fontWeight: 600}}
-                       domain={[0, 10]} // Assuming normalized scale roughly 0-10 for all
+                       domain={[0, 10]}
                     />
                     <Tooltip content={<CustomTooltip />} cursor={{stroke: '#e2e8f0', strokeWidth: 2}} />
                     
-                    {/* Sleep: Dark Navy Line (Inventory Health style) */}
                     <Line 
                        type="monotone" 
                        dataKey="sleepHrs" 
@@ -343,8 +335,6 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
                        dot={false}
                        activeDot={{r: 6, fill: '#1e3a8a', stroke: '#fff', strokeWidth: 2}}
                     />
-
-                    {/* Anxiety: Teal Line */}
                     <Line 
                        type="monotone" 
                        dataKey="anxietyLevel" 
@@ -354,8 +344,6 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
                        dot={false}
                        activeDot={{r: 6, fill: '#2dd4bf', stroke: '#fff', strokeWidth: 2}}
                     />
-
-                    {/* Mood: Amber Line */}
                     <Line 
                        type="monotone" 
                        dataKey="moodLevel" 
@@ -372,70 +360,73 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
 
       </div>
 
-      {/* MODERNIZED DATA TABLE */}
+      {/* MODERNIZED DATA TABLE - MATCHING SCREENSHOT */}
       <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-stone-100 overflow-hidden">
         <div className="p-6 border-b border-stone-100 flex items-center justify-between">
-           <h3 className="font-bold text-stone-800 flex items-center gap-2">
+           <h3 className="font-bold text-stone-800 flex items-center gap-2 text-lg">
              <Calendar className="w-5 h-5 text-stone-400" />
              Detailed Logs
            </h3>
-           <button className="text-xs font-bold text-teal-600 hover:text-teal-700 bg-teal-50 px-3 py-1.5 rounded-full transition-colors">
+           <button className="text-xs font-bold text-teal-700 bg-teal-50 px-4 py-2 rounded-full transition-colors hover:bg-teal-100">
               Export Data
            </button>
         </div>
         
         <div className="overflow-x-auto custom-scrollbar">
-          <table className="w-full text-left">
+          <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-stone-100">
-                <th className="py-4 px-6 text-[11px] font-bold text-stone-400 uppercase tracking-wider">Date</th>
-                <th className="py-4 px-6 text-[11px] font-bold text-stone-400 uppercase tracking-wider">Dose</th>
-                <th className="py-4 px-6 text-[11px] font-bold text-stone-400 uppercase tracking-wider">Sleep</th>
-                <th className="py-4 px-6 text-[11px] font-bold text-stone-400 uppercase tracking-wider text-center">Status</th>
-                <th className="py-4 px-6 text-[11px] font-bold text-stone-400 uppercase tracking-wider text-right">Vitals</th>
+                <th className="py-5 px-8 text-[11px] font-bold text-stone-400 uppercase tracking-wider w-[200px]">Date</th>
+                <th className="py-5 px-6 text-[11px] font-bold text-stone-400 uppercase tracking-wider">Dose</th>
+                <th className="py-5 px-6 text-[11px] font-bold text-stone-400 uppercase tracking-wider">Sleep</th>
+                <th className="py-5 px-6 text-[11px] font-bold text-stone-400 uppercase tracking-wider text-center">Status</th>
+                <th className="py-5 px-8 text-[11px] font-bold text-stone-400 uppercase tracking-wider text-right">Vitals</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-50">
-              {sortedLogs.slice().reverse().map((log, i) => (
-                <tr key={i} className="hover:bg-stone-50/50 transition-colors group">
-                  <td className="py-4 px-6 whitespace-nowrap">
-                    <div className="flex flex-col">
-                       <span className="text-sm font-bold text-stone-800">
-                         {new Date(log.date).toLocaleDateString(undefined, {month: 'short', day: 'numeric'})}
-                       </span>
-                       <span className="text-xs text-stone-400">
-                         {new Date(log.date).toLocaleDateString(undefined, {weekday: 'long'})}
-                       </span>
-                    </div>
-                  </td>
-                  <td className="py-4 px-6">
-                    <span className="inline-flex items-center gap-1.5 bg-stone-100 text-stone-600 px-2.5 py-1 rounded-lg text-xs font-bold">
-                       <Pill className="w-3 h-3" /> {log.lDose}mg
-                    </span>
-                  </td>
-                  <td className="py-4 px-6">
-                    <div className="flex items-center gap-2">
-                       <span className="text-sm font-bold text-indigo-900">{log.sleepHrs}h</span>
-                       {log.napMinutes ? <span className="text-xs text-stone-400">+{log.napMinutes}m nap</span> : ''}
-                    </div>
-                  </td>
-                  <td className="py-4 px-6 text-center">
-                    <div className="flex items-center justify-center gap-2">
-                       {/* Mini Dots for Mood/Anx */}
-                       <div className={`w-2 h-2 rounded-full ${log.anxietyLevel > 5 ? 'bg-teal-400' : 'bg-teal-200'}`} title={`Anxiety: ${log.anxietyLevel}`} />
-                       <div className={`w-2 h-2 rounded-full ${log.moodLevel > 5 ? 'bg-amber-400' : 'bg-amber-200'}`} title={`Mood: ${log.moodLevel}`} />
-                       {(log.brainZapLevel || 0) > 0 && <div className="w-2 h-2 rounded-full bg-red-400" title="Brain Zaps" />}
-                    </div>
-                  </td>
-                  <td className="py-4 px-6 text-right">
-                    {log.bpMorningSys ? (
-                        <span className="text-xs font-mono font-bold text-stone-500 bg-stone-50 px-2 py-1 rounded border border-stone-100">
-                           {log.bpMorningSys}/{log.bpMorningDia} <span className="text-stone-300">|</span> {log.bpMorningPulse}
+              {sortedLogs.slice().reverse().map((log, i) => {
+                 // Incomplete logs might look faded
+                 const opacity = log.isComplete ? 'opacity-100' : 'opacity-100'; 
+                 return (
+                  <tr key={i} className={`hover:bg-stone-50/50 transition-colors group ${opacity}`}>
+                    <td className="py-5 px-8 whitespace-nowrap">
+                      <div className="flex flex-col">
+                        <span className="text-base font-bold text-stone-800">
+                          {new Date(log.date).toLocaleDateString(undefined, {day: 'numeric', month: 'short'})}
                         </span>
-                    ) : <span className="text-stone-300 text-xs">-</span>}
-                  </td>
-                </tr>
-              ))}
+                        <span className="text-xs text-stone-400 font-medium">
+                          {new Date(log.date).toLocaleDateString(undefined, {weekday: 'long'})}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="py-5 px-6">
+                      <span className="inline-flex items-center gap-1.5 bg-stone-100 text-stone-600 px-3 py-1.5 rounded-full text-xs font-bold min-w-[70px] justify-center">
+                        <Pill className="w-3 h-3 text-stone-400" /> {log.lDose}mg
+                      </span>
+                    </td>
+                    <td className="py-5 px-6">
+                      <div className="text-base font-bold text-indigo-900">{log.sleepHrs}h</div>
+                    </td>
+                    <td className="py-5 px-6 text-center">
+                      <div className="flex items-center justify-center gap-1.5">
+                        {/* Status Dots matching screenshot: Cyan for Mood/Anx, Yellow for secondary */}
+                        {/* We use teal-400 (#2dd4bf) and amber-400 (#fbbf24) to match visually */}
+                        <div className="w-2.5 h-2.5 rounded-full bg-teal-400" />
+                        <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+                      </div>
+                    </td>
+                    <td className="py-5 px-8 text-right">
+                      {log.bpMorningSys ? (
+                          <div className="inline-block border border-stone-100 bg-stone-50 px-3 py-1.5 rounded-lg">
+                            <span className="text-xs font-mono font-bold text-stone-600">
+                              {log.bpMorningSys}/{log.bpMorningDia} <span className="text-stone-300 mx-1">|</span> {log.bpMorningPulse}
+                            </span>
+                          </div>
+                      ) : <span className="text-stone-300 text-xl font-light">-</span>}
+                    </td>
+                  </tr>
+                 );
+              })}
             </tbody>
           </table>
         </div>

@@ -1,4 +1,5 @@
 
+
 export interface TaperStep {
   weeks: string;
   dose: number | string; // string for "Below 2.0"
@@ -46,6 +47,9 @@ export interface DailyLogEntry {
 
   // Journal
   dailyNote?: string;
+  
+  // Status
+  isComplete?: boolean;
 }
 
 export interface UserSettings {

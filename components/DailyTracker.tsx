@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import { DAILY_SCHEDULE, TAPER_SCHEDULE } from '../constants';
 import { DailyLogEntry } from '../types';
-import { Check, Clock, Sun, Moon, Sunrise, Sunset, Activity, ChevronDown, ChevronUp, AlertCircle, Zap, CloudRain, BatteryCharging, PenLine, Smile, Frown, Meh, MoreHorizontal, HeartPulse } from 'lucide-react';
+import { Check, Clock, Sun, Moon, Sunrise, Sunset, Activity, AlertCircle, Zap, CloudRain, BatteryCharging, PenLine, Smile, HeartPulse, CheckCircle2, RotateCcw } from 'lucide-react';
 
 interface DailyTrackerProps {
   currentDate: string;
@@ -71,7 +72,7 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
   };
 
   const [formData, setFormData] = useState<DailyLogEntry>(() => {
-    // If we have passed data (either existing or carried over from App.tsx), use it
+    // If we have passed data use it
     if (logData) return logData;
     
     // Fallback default
@@ -87,11 +88,13 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
       depressionLevel: 1,
       brainZapLevel: 0,
       smokingLevel: 5,
-      dailyNote: ''
+      dailyNote: '',
+      isComplete: false
     };
   });
 
   const [expandedNotes, setExpandedNotes] = useState<string | null>(null);
+  const [showCelebration, setShowCelebration] = useState(false);
   
   // Update local state when prop changes (e.g. date switch)
   useEffect(() => {
@@ -103,9 +106,9 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
         depressionLevel: logData.depressionLevel ?? 1,
         brainZapLevel: logData.brainZapLevel ?? 0,
         dailyNote: logData.dailyNote ?? '',
+        isComplete: logData.isComplete ?? false
       }));
     } else {
-       // Reset logic handled by App.tsx passed via logData mostly, but safety net:
        setFormData({
         date: currentDate,
         completedItems: {},
@@ -118,12 +121,14 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
         depressionLevel: 1,
         brainZapLevel: 0,
         smokingLevel: 5,
-        dailyNote: ''
+        dailyNote: '',
+        isComplete: false
       });
     }
   }, [logData, currentDate]);
 
   const handleToggleItem = (itemId: string, subItem: string) => {
+    if (formData.isComplete) return; // Locked if complete
     const key = `${itemId}-${subItem}`;
     const newCompleted = {
       ...formData.completedItems,
@@ -135,22 +140,29 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
   };
 
   const handleChange = (field: keyof DailyLogEntry, value: any) => {
+    if (formData.isComplete) return; // Locked if complete
     const updated = { ...formData, [field]: value };
     setFormData(updated);
     onUpdateLog(updated);
   };
 
   const handleBPChange = (period: 'Morning' | 'Night', type: 'Sys' | 'Dia' | 'Pulse', value: string) => {
+    if (formData.isComplete) return;
     const numValue = parseInt(value) || 0;
     const fieldName = `bp${period}${type}` as keyof DailyLogEntry;
     handleChange(fieldName, numValue);
   };
 
-  const handleIrregularChange = (period: 'Morning' | 'Night') => {
-    const fieldName = `bp${period}Irregular` as keyof DailyLogEntry;
-    // @ts-ignore
-    const currentValue = formData[fieldName] || false;
-    handleChange(fieldName, !currentValue);
+  const toggleCompleteDay = () => {
+    const newStatus = !formData.isComplete;
+    const updated = { ...formData, isComplete: newStatus };
+    setFormData(updated);
+    onUpdateLog(updated);
+    
+    if (newStatus) {
+        setShowCelebration(true);
+        setTimeout(() => setShowCelebration(false), 3000);
+    }
   };
 
   const getProgress = () => {
@@ -181,28 +193,60 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
   const adherence = getProgress();
 
   return (
-    <div className="space-y-8 pb-24">
+    <div className="space-y-8 pb-24 relative">
       
+      {/* Celebration Overlay */}
+      {showCelebration && (
+         <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none">
+            <div className="bg-white/90 backdrop-blur-xl p-8 rounded-3xl shadow-2xl border border-teal-100 flex flex-col items-center animate-in zoom-in-95 duration-300">
+               <div className="w-16 h-16 bg-teal-50 text-teal-500 rounded-full flex items-center justify-center mb-4">
+                  <CheckCircle2 className="w-10 h-10" />
+               </div>
+               <h2 className="text-xl font-bold text-stone-800">Day Completed!</h2>
+               <p className="text-stone-500 text-sm mt-1">Great job tracking your progress today.</p>
+            </div>
+         </div>
+      )}
+
       {/* 1. Hero / Progress Status */}
-      <div className="bg-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-stone-100 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-full blur-3xl -mr-16 -mt-16 opacity-50 pointer-events-none"></div>
+      <div className={`rounded-3xl p-6 relative overflow-hidden transition-all duration-500 ${
+         formData.isComplete 
+           ? 'bg-gradient-to-br from-teal-500 to-emerald-600 text-white shadow-lg shadow-teal-200' 
+           : 'bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-stone-100'
+      }`}>
+        <div className={`absolute top-0 right-0 w-64 h-64 rounded-full blur-3xl -mr-16 -mt-16 opacity-30 pointer-events-none ${
+           formData.isComplete ? 'bg-white' : 'bg-indigo-50'
+        }`}></div>
+        
         <div className="flex justify-between items-start mb-6 relative z-10">
           <div>
-            <h2 className="text-xl font-bold text-stone-900 tracking-tight">Daily Progress</h2>
+            <h2 className={`text-xl font-bold tracking-tight ${formData.isComplete ? 'text-white' : 'text-stone-900'}`}>
+              {formData.isComplete ? "Daily Log Complete" : "Daily Progress"}
+            </h2>
             <div className="flex items-center gap-2 mt-1">
-              <span className="text-xs font-semibold text-stone-500 uppercase tracking-wide">Current Dose:</span>
-              <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+              <span className={`text-xs font-semibold uppercase tracking-wide ${formData.isComplete ? 'text-teal-100' : 'text-stone-500'}`}>
+                 Current Dose:
+              </span>
+              <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${
+                 formData.isComplete 
+                   ? 'bg-white/20 border-white/20 text-white' 
+                   : 'text-indigo-600 bg-indigo-50 border-indigo-100'
+              }`}>
                 {formData.lDose} mg
               </span>
             </div>
           </div>
           <div className="text-right">
-             <div className="text-3xl font-black text-stone-800 tabular-nums leading-none">{adherence}%</div>
+             <div className={`text-3xl font-black tabular-nums leading-none ${formData.isComplete ? 'text-white' : 'text-stone-800'}`}>
+                {adherence}%
+             </div>
           </div>
         </div>
-        <div className="w-full bg-stone-100 rounded-full h-3 overflow-hidden">
+        <div className="w-full bg-black/10 rounded-full h-3 overflow-hidden">
           <div 
-            className="h-full bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-full transition-all duration-700 ease-out shadow-[0_0_10px_rgba(99,102,241,0.4)]" 
+            className={`h-full rounded-full transition-all duration-700 ease-out ${
+               formData.isComplete ? 'bg-white' : 'bg-gradient-to-r from-indigo-500 to-indigo-600'
+            }`}
             style={{ width: `${adherence}%` }}
           />
         </div>
@@ -211,10 +255,10 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
         {/* 2. Schedule Timeline (Left Column) */}
-        <div className="lg:col-span-7 space-y-6">
+        <div className={`lg:col-span-7 space-y-6 ${formData.isComplete ? 'opacity-80 grayscale-[0.3] pointer-events-none' : ''}`}>
            <h3 className="text-lg font-bold text-stone-800 flex items-center gap-2">
              <Clock className="w-5 h-5 text-indigo-500" />
-             Schedule
+             Medication & Schedule
            </h3>
            
            <div className="space-y-4">
@@ -224,8 +268,8 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
 
                 return (
                   <div key={slot.id} className={`group relative transition-all duration-300 rounded-2xl border overflow-hidden ${
-                    allDone ? 'bg-stone-50/50 border-stone-100 opacity-80' : 
-                    isCurrent ? 'bg-white border-indigo-200 ring-4 ring-indigo-50 shadow-lg shadow-indigo-100/50' : 
+                    allDone ? 'bg-stone-50/50 border-stone-100 opacity-90' : 
+                    isCurrent && !formData.isComplete ? 'bg-white border-indigo-200 ring-4 ring-indigo-50 shadow-lg shadow-indigo-100/50' : 
                     'bg-white border-stone-100 shadow-sm'
                   }`}>
                     
@@ -233,14 +277,14 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
                     <div className="flex items-center justify-between p-4 border-b border-stone-50/50">
                       <div className="flex items-center gap-3">
                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-colors ${
-                            isCurrent ? 'bg-indigo-50 border-indigo-100' : 'bg-white border-stone-100'
+                            isCurrent && !formData.isComplete ? 'bg-indigo-50 border-indigo-100' : 'bg-white border-stone-100'
                          }`}>
                            {getTimeIcon(slot.label)}
                          </div>
                          <div>
                            <div className="flex items-center gap-2">
-                             <div className={`font-bold ${isCurrent ? 'text-indigo-900' : 'text-stone-800'}`}>{slot.label}</div>
-                             {isCurrent && <span className="flex h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />}
+                             <div className={`font-bold ${isCurrent && !formData.isComplete ? 'text-indigo-900' : 'text-stone-800'}`}>{slot.label}</div>
+                             {isCurrent && !formData.isComplete && <span className="flex h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />}
                            </div>
                            <div className="text-xs text-stone-400 font-medium">{slot.time}</div>
                          </div>
@@ -268,11 +312,12 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
                                <button
                                  key={idx}
                                  onClick={() => handleToggleItem(slot.id, item)}
+                                 disabled={formData.isComplete}
                                  className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all duration-200 ${
                                    isChecked 
                                      ? 'bg-stone-50 border-transparent text-stone-400' 
                                      : 'bg-white border-stone-200 hover:border-indigo-300 hover:shadow-sm'
-                                 }`}
+                                 } ${formData.isComplete ? 'cursor-default' : 'cursor-pointer'}`}
                                >
                                  <span className={`text-sm font-medium text-left ${isChecked ? 'line-through decoration-stone-300' : 'text-stone-700'}`}>
                                    {item}
@@ -288,7 +333,7 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
                        </div>
 
                        {/* Notes Toggle */}
-                       {slot.notes.length > 0 && (
+                       {slot.notes.length > 0 && !formData.isComplete && (
                          <div className="mt-3">
                            <button 
                              onClick={() => setExpandedNotes(expandedNotes === slot.id ? null : slot.id)}
@@ -327,7 +372,8 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
                                     placeholder="120"
                                     value={slot.id.includes('morning') ? formData.bpMorningSys || '' : formData.bpNightSys || ''}
                                     onChange={(e) => handleBPChange(slot.id.includes('morning') ? 'Morning' : 'Night', 'Sys', e.target.value)}
-                                    className="w-full pl-3 pr-2 py-2 bg-stone-50 border border-stone-200 rounded-lg text-sm font-bold text-stone-700 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-300 text-center"
+                                    disabled={formData.isComplete}
+                                    className="w-full pl-3 pr-2 py-2 bg-stone-50 border border-stone-200 rounded-lg text-sm font-bold text-stone-700 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-300 text-center disabled:opacity-70"
                                   />
                                   <div className="text-[9px] text-stone-400 text-center mt-1 font-semibold">SYS</div>
                                 </div>
@@ -338,7 +384,8 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
                                     placeholder="80"
                                     value={slot.id.includes('morning') ? formData.bpMorningDia || '' : formData.bpNightDia || ''}
                                     onChange={(e) => handleBPChange(slot.id.includes('morning') ? 'Morning' : 'Night', 'Dia', e.target.value)}
-                                    className="w-full pl-3 pr-2 py-2 bg-stone-50 border border-stone-200 rounded-lg text-sm font-bold text-stone-700 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-300 text-center"
+                                    disabled={formData.isComplete}
+                                    className="w-full pl-3 pr-2 py-2 bg-stone-50 border border-stone-200 rounded-lg text-sm font-bold text-stone-700 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-300 text-center disabled:opacity-70"
                                   />
                                   <div className="text-[9px] text-stone-400 text-center mt-1 font-semibold">DIA</div>
                                 </div>
@@ -349,7 +396,8 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
                                     placeholder="60"
                                     value={slot.id.includes('morning') ? formData.bpMorningPulse || '' : formData.bpNightPulse || ''}
                                     onChange={(e) => handleBPChange(slot.id.includes('morning') ? 'Morning' : 'Night', 'Pulse', e.target.value)}
-                                    className="w-full pl-3 pr-2 py-2 bg-stone-50 border border-stone-200 rounded-lg text-sm font-bold text-stone-700 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-300 text-center"
+                                    disabled={formData.isComplete}
+                                    className="w-full pl-3 pr-2 py-2 bg-stone-50 border border-stone-200 rounded-lg text-sm font-bold text-stone-700 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-300 text-center disabled:opacity-70"
                                   />
                                   <div className="text-[9px] text-stone-400 text-center mt-1 font-semibold">BPM</div>
                                 </div>
@@ -368,135 +416,182 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
           <div className="sticky top-24 space-y-6">
             <h3 className="text-lg font-bold text-stone-800 flex items-center gap-2">
                <Activity className="w-5 h-5 text-teal-500" />
-               Wellness Check-in
+               End of Day Check-in
             </h3>
             
-            <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-stone-100 p-6 space-y-8">
-              
-              {/* Dosage Config (Compact) */}
-              <div className="bg-stone-50 rounded-xl p-4 border border-stone-100">
-                <div className="flex justify-between items-center mb-3">
-                   <label className="text-xs font-bold text-stone-500 uppercase tracking-wider">Active Dosage</label>
-                   <PenLine className="w-3 h-3 text-stone-400" />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-[10px] font-semibold text-stone-400 mb-1 block">Lexapro</label>
-                      <select 
-                        value={formData.lDose}
-                        onChange={(e) => handleChange('lDose', parseFloat(e.target.value))}
-                        className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1.5 text-sm font-bold text-stone-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-100"
-                      >
-                        {TAPER_SCHEDULE.map(step => (
-                          <option key={step.weeks} value={typeof step.dose === 'number' ? step.dose : 0}>
-                            {step.dose} mg
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-semibold text-stone-400 mb-1 block">Benzo</label>
-                      <input 
-                        type="text" 
-                        value={formData.bDose}
-                        onChange={(e) => handleChange('bDose', e.target.value)}
-                        className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1.5 text-sm font-bold text-stone-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-100 placeholder:font-normal placeholder:text-stone-300"
-                        placeholder="0.5mg"
-                      />
-                    </div>
-                </div>
-              </div>
-
-              {/* Sliders Section */}
-              <div className="space-y-6">
-                
-                {/* Sleep */}
-                <TouchSlider 
-                   label="Sleep Duration" 
-                   value={formData.sleepHrs} 
-                   onChange={(v: number) => handleChange('sleepHrs', v)} 
-                   min={0} max={12} step={0.5} 
-                   icon={Moon} 
-                   colorClass="text-indigo-500"
-                   valueSuffix="h"
-                />
-
-                <div className="h-px bg-stone-100" />
-
-                {/* Anxiety */}
-                <TouchSlider 
-                   label="Anxiety" 
-                   value={formData.anxietyLevel} 
-                   onChange={(v: number) => handleChange('anxietyLevel', v)} 
-                   min={1} max={10} 
-                   icon={Zap} 
-                   colorClass="text-orange-500"
-                />
-
-                {/* Depression */}
-                <TouchSlider 
-                   label="Depression" 
-                   value={formData.depressionLevel || 1} 
-                   onChange={(v: number) => handleChange('depressionLevel', v)} 
-                   min={1} max={10} 
-                   icon={CloudRain} 
-                   colorClass="text-purple-500"
-                />
-
-                {/* Mood */}
-                <TouchSlider 
-                   label="Overall Mood" 
-                   value={formData.moodLevel} 
-                   onChange={(v: number) => handleChange('moodLevel', v)} 
-                   min={1} max={10} 
-                   icon={Smile} 
-                   colorClass="text-emerald-500"
-                />
-
-                <div className="h-px bg-stone-100" />
-
-                {/* Brain Zaps */}
-                <div className="space-y-3">
-                  <label className="flex items-center gap-2 text-sm font-bold text-stone-700">
-                    <BatteryCharging className="w-4 h-4 text-blue-500" /> Brain Zaps
-                  </label>
-                  <div className="grid grid-cols-4 gap-2">
-                    {['None', 'Mild', 'Mod', 'Severe'].map((label, idx) => {
-                      const isSelected = (formData.brainZapLevel || 0) === idx;
-                      return (
-                        <button
-                          key={idx}
-                          onClick={() => handleChange('brainZapLevel', idx)}
-                          className={`py-2 rounded-lg text-xs font-bold transition-all border ${
-                            isSelected
-                              ? 'bg-blue-500 text-white border-blue-600 shadow-md shadow-blue-200'
-                              : 'bg-white text-stone-500 border-stone-200 hover:border-blue-200'
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      );
-                    })}
+            {/* If Complete, show Summary Card */}
+            {formData.isComplete ? (
+               <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-stone-100 p-6 space-y-6 animate-in fade-in slide-in-from-bottom-4">
+                  <div className="text-center py-4 border-b border-stone-100">
+                     <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <CheckCircle2 className="w-8 h-8 text-green-500" />
+                     </div>
+                     <h3 className="text-xl font-bold text-stone-800">Check-in Complete</h3>
+                     <p className="text-sm text-stone-400">All data saved for {new Date(currentDate).toLocaleDateString(undefined, {weekday: 'long'})}</p>
                   </div>
-                </div>
 
-                <div className="h-px bg-stone-100" />
+                  <div className="space-y-4">
+                     <div className="flex justify-between items-center bg-stone-50 p-3 rounded-xl border border-stone-100">
+                        <span className="text-sm font-bold text-stone-600 flex items-center gap-2">
+                           <Moon className="w-4 h-4 text-indigo-500" /> Sleep
+                        </span>
+                        <span className="text-sm font-bold text-stone-900">{formData.sleepHrs}h</span>
+                     </div>
+                     <div className="flex justify-between items-center bg-stone-50 p-3 rounded-xl border border-stone-100">
+                        <span className="text-sm font-bold text-stone-600 flex items-center gap-2">
+                           <Zap className="w-4 h-4 text-teal-500" /> Anxiety
+                        </span>
+                        <div className="flex gap-1">
+                           {[...Array(formData.anxietyLevel)].map((_, i) => (
+                              <div key={i} className="w-1.5 h-3 bg-teal-400 rounded-full" />
+                           ))}
+                        </div>
+                     </div>
+                     <div className="flex justify-between items-center bg-stone-50 p-3 rounded-xl border border-stone-100">
+                        <span className="text-sm font-bold text-stone-600 flex items-center gap-2">
+                           <Smile className="w-4 h-4 text-amber-500" /> Mood
+                        </span>
+                        <div className="flex gap-1">
+                           {[...Array(formData.moodLevel)].map((_, i) => (
+                              <div key={i} className="w-1.5 h-3 bg-amber-400 rounded-full" />
+                           ))}
+                        </div>
+                     </div>
+                  </div>
 
-                {/* Daily Journal */}
-                <div className="space-y-2">
-                   <label className="flex items-center gap-2 text-sm font-bold text-stone-700">
-                      <PenLine className="w-4 h-4 text-stone-400" /> Daily Notes
-                   </label>
-                   <textarea
-                      value={formData.dailyNote || ''}
-                      onChange={(e) => handleChange('dailyNote', e.target.value)}
-                      placeholder="Symptoms, stressors, food, etc..."
-                      className="w-full bg-stone-50 border border-stone-200 rounded-xl p-3 text-sm text-stone-700 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 min-h-[80px] resize-none"
+                  <button 
+                    onClick={toggleCompleteDay}
+                    className="w-full py-3 mt-4 text-sm font-bold text-stone-400 bg-white border-2 border-dashed border-stone-200 rounded-xl hover:text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50 transition-all flex items-center justify-center gap-2"
+                  >
+                     <RotateCcw className="w-4 h-4" /> Edit Entry
+                  </button>
+               </div>
+            ) : (
+               // If Incomplete, show Form
+               <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-stone-100 p-6 space-y-8 relative overflow-hidden">
+                 
+                 {/* Dosage Config (Compact) */}
+                 <div className="bg-stone-50 rounded-xl p-4 border border-stone-100">
+                   <div className="flex justify-between items-center mb-3">
+                      <label className="text-xs font-bold text-stone-500 uppercase tracking-wider">Active Dosage</label>
+                      <PenLine className="w-3 h-3 text-stone-400" />
+                   </div>
+                   <div className="grid grid-cols-2 gap-4">
+                       <div>
+                         <label className="text-[10px] font-semibold text-stone-400 mb-1 block">Lexapro</label>
+                         <select 
+                           value={formData.lDose}
+                           onChange={(e) => handleChange('lDose', parseFloat(e.target.value))}
+                           className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1.5 text-sm font-bold text-stone-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                         >
+                           {TAPER_SCHEDULE.map(step => (
+                             <option key={step.weeks} value={typeof step.dose === 'number' ? step.dose : 0}>
+                               {step.dose} mg
+                             </option>
+                           ))}
+                         </select>
+                       </div>
+                       <div>
+                         <label className="text-[10px] font-semibold text-stone-400 mb-1 block">Benzo</label>
+                         <input 
+                           type="text" 
+                           value={formData.bDose}
+                           onChange={(e) => handleChange('bDose', e.target.value)}
+                           className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1.5 text-sm font-bold text-stone-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-100 placeholder:font-normal placeholder:text-stone-300"
+                           placeholder="0.5mg"
+                         />
+                       </div>
+                   </div>
+                 </div>
+
+                 {/* Sliders Section */}
+                 <div className="space-y-6">
+                   
+                   {/* Sleep */}
+                   <TouchSlider 
+                      label="Sleep Duration" 
+                      value={formData.sleepHrs} 
+                      onChange={(v: number) => handleChange('sleepHrs', v)} 
+                      min={0} max={12} step={0.5} 
+                      icon={Moon} 
+                      colorClass="text-indigo-500"
+                      valueSuffix="h"
                    />
-                </div>
 
-              </div>
-            </div>
+                   <div className="h-px bg-stone-100" />
+
+                   {/* Anxiety */}
+                   <TouchSlider 
+                      label="Anxiety" 
+                      value={formData.anxietyLevel} 
+                      onChange={(v: number) => handleChange('anxietyLevel', v)} 
+                      min={1} max={10} 
+                      icon={Zap} 
+                      colorClass="text-teal-500"
+                   />
+
+                   {/* Mood */}
+                   <TouchSlider 
+                      label="Overall Mood" 
+                      value={formData.moodLevel} 
+                      onChange={(v: number) => handleChange('moodLevel', v)} 
+                      min={1} max={10} 
+                      icon={Smile} 
+                      colorClass="text-amber-500"
+                   />
+
+                   <div className="h-px bg-stone-100" />
+
+                   {/* Brain Zaps */}
+                   <div className="space-y-3">
+                     <label className="flex items-center gap-2 text-sm font-bold text-stone-700">
+                       <BatteryCharging className="w-4 h-4 text-blue-500" /> Brain Zaps
+                     </label>
+                     <div className="grid grid-cols-4 gap-2">
+                       {['None', 'Mild', 'Mod', 'Severe'].map((label, idx) => {
+                         const isSelected = (formData.brainZapLevel || 0) === idx;
+                         return (
+                           <button
+                             key={idx}
+                             onClick={() => handleChange('brainZapLevel', idx)}
+                             className={`py-2 rounded-lg text-xs font-bold transition-all border ${
+                               isSelected
+                                 ? 'bg-blue-500 text-white border-blue-600 shadow-md shadow-blue-200'
+                                 : 'bg-white text-stone-500 border-stone-200 hover:border-blue-200'
+                             }`}
+                           >
+                             {label}
+                           </button>
+                         );
+                       })}
+                     </div>
+                   </div>
+
+                   <div className="h-px bg-stone-100" />
+
+                   {/* Daily Journal */}
+                   <div className="space-y-2">
+                      <label className="flex items-center gap-2 text-sm font-bold text-stone-700">
+                         <PenLine className="w-4 h-4 text-stone-400" /> Daily Notes
+                      </label>
+                      <textarea
+                         value={formData.dailyNote || ''}
+                         onChange={(e) => handleChange('dailyNote', e.target.value)}
+                         placeholder="Symptoms, stressors, food, etc..."
+                         className="w-full bg-stone-50 border border-stone-200 rounded-xl p-3 text-sm text-stone-700 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 min-h-[80px] resize-none"
+                      />
+                   </div>
+
+                   {/* Complete Button */}
+                   <button 
+                      onClick={toggleCompleteDay}
+                      className="w-full py-4 mt-4 bg-stone-900 text-white rounded-xl font-bold text-sm shadow-xl shadow-stone-200 hover:bg-black hover:shadow-2xl transition-all active:scale-95 flex items-center justify-center gap-2 group"
+                   >
+                      Complete Check-in <CheckCircle2 className="w-4 h-4 group-hover:text-green-400 transition-colors" />
+                   </button>
+                 </div>
+               </div>
+            )}
           </div>
         </div>
 

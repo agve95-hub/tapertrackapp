@@ -13,7 +13,7 @@ import {
   ResponsiveContainer,
   Legend
 } from 'recharts';
-import { Calendar, FileText, ChevronDown, Activity, TrendingDown, TrendingUp, Minus, Pill, Moon, Zap, Smile } from 'lucide-react';
+import { Calendar, FileText, ChevronDown, Activity, TrendingDown, TrendingUp, Minus, Pill, Moon, Zap, Smile, HeartPulse, CloudRain, BatteryCharging, Flame, ChevronRight, ChevronUp } from 'lucide-react';
 
 interface HistoryAnalyticsProps {
   logs: DailyLogEntry[];
@@ -23,12 +23,12 @@ type ViewMode = 'daily' | 'weekly' | 'monthly';
 
 const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
   const [viewMode, setViewMode] = useState<ViewMode>('daily');
+  const [expandedRow, setExpandedRow] = useState<number | null>(null);
   
   const sortedLogs = useMemo(() => {
     return [...logs].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [logs]);
 
-  // --- STATS CALCULATION ---
   const stats = useMemo(() => {
     if (logs.length === 0) return null;
     
@@ -46,32 +46,25 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
       avgSleep: avg(last7, 'sleepHrs'),
       avgAnxiety: avg(last7, 'anxietyLevel'),
       avgMood: avg(last7, 'moodLevel'),
-      avgEnergy: 10 - avg(last7, 'brainZapLevel'), // Invert zap for "Health"
-      adherence: 95, // Mock or calc based on completedItems
     };
   }, [logs, sortedLogs]);
 
-  // --- CHART DATA PREP ---
   const chartData = useMemo(() => {
     if (logs.length === 0) return [];
     
     const formatEntry = (l: DailyLogEntry) => ({
       ...l,
       dateFormatted: new Date(l.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-      // Normalize values for chart visualization if needed, or keep raw
       sleepHrs: l.sleepHrs || 0,
       anxietyLevel: l.anxietyLevel || 0,
       moodLevel: l.moodLevel || 0,
-      brainZapLevel: l.brainZapLevel || 0,
     });
 
     if (viewMode === 'daily') {
        return sortedLogs.map(formatEntry);
     }
 
-    // Aggregation Logic
     const groups: Record<string, DailyLogEntry[]> = {};
-    
     sortedLogs.forEach(log => {
       const [y, m, d] = log.date.split('-').map(Number);
       const dateObj = new Date(y, m - 1, d);
@@ -86,7 +79,6 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
       } else {
          key = `${y}-${String(m).padStart(2, '0')}-01`;
       }
-      
       if (!groups[key]) groups[key] = [];
       groups[key].push(log);
     });
@@ -107,7 +99,6 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
             : new Date(dateKey).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
          anxietyLevel: avg('anxietyLevel'),
          moodLevel: avg('moodLevel'),
-         brainZapLevel: avg('brainZapLevel'),
          sleepHrs: avg('sleepHrs'),
          lDose: avg('lDose'),
        };
@@ -136,7 +127,30 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
     return null;
   };
 
-  // --- RENDERING ---
+  const RatingBar = ({ label, value, colorClass, icon: Icon }: any) => (
+      <div className="space-y-1">
+          <div className="flex justify-between items-center text-xs">
+              <span className="font-semibold text-stone-500 flex items-center gap-1.5"><Icon className="w-3 h-3" /> {label}</span>
+              <span className={`font-bold ${colorClass.replace('bg-', 'text-')}`}>{value}/10</span>
+          </div>
+          <div className="h-1.5 w-full bg-stone-100 rounded-full overflow-hidden">
+              <div className={`h-full rounded-full ${colorClass}`} style={{ width: `${(value / 10) * 100}%` }}></div>
+          </div>
+      </div>
+  );
+
+  const StatBadge = ({ icon: Icon, label, value, sub }: any) => (
+     <div className="flex items-center gap-3 bg-white border border-stone-100 p-3 rounded-xl shadow-sm">
+        <div className="w-8 h-8 rounded-full bg-stone-50 flex items-center justify-center text-stone-400">
+           <Icon className="w-4 h-4" />
+        </div>
+        <div>
+           <div className="text-sm font-bold text-stone-800">{value}</div>
+           <div className="text-[10px] text-stone-400 font-bold uppercase">{label}</div>
+           {sub && <div className="text-[10px] text-stone-300">{sub}</div>}
+        </div>
+     </div>
+  );
 
   if (logs.length === 0) {
     return (
@@ -162,7 +176,6 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
           <p className="text-stone-500 text-sm font-medium">Overview of your wellness journey</p>
         </div>
         
-        {/* View Switcher */}
         <div className="relative group">
             <select 
               value={viewMode}
@@ -196,7 +209,6 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
             </div>
             
             <div className="mt-8">
-               {/* Mini Sparkline Area */}
                <div className="h-16 w-full -mx-2">
                  <ResponsiveContainer width="100%" height="100%">
                    <AreaChart data={chartData.slice(-10)}>
@@ -210,103 +222,19 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
                    </AreaChart>
                  </ResponsiveContainer>
                </div>
-               <div className="flex justify-between items-center text-xs font-bold text-stone-400 mt-2 border-t border-stone-100 pt-3">
-                  <span>Adherence</span>
-                  <span className="text-teal-600">98% This Week</span>
-               </div>
             </div>
         </div>
 
-        {/* CARD 2: SYMPTOM HEALTH */}
+        {/* CARD 2: MAIN CHART */}
         <div className="bg-white p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-stone-100 md:col-span-2">
-            <div className="flex justify-between items-center mb-6">
-               <div>
-                  <h3 className="text-3xl font-bold text-stone-900 tracking-tight">Wellness Score</h3>
-                  <p className="text-stone-400 text-xs font-bold uppercase tracking-wider mt-1">Last 7 Days Average</p>
-               </div>
-               <div className="text-right">
-                  <div className="text-sm font-bold text-stone-500">Overall</div>
-                  <div className="text-xl font-bold text-teal-500">Good</div>
-               </div>
-            </div>
-
-            <div className="space-y-6">
-               {/* Sleep Bar */}
-               <div>
-                  <div className="flex justify-between items-end mb-2">
-                     <span className="text-sm font-bold text-stone-700 flex items-center gap-2">
-                        <Moon className="w-4 h-4 text-indigo-900" /> Sleep Quality
-                     </span>
-                     <span className="text-sm font-bold text-indigo-900">{stats?.avgSleep.toFixed(1)} hrs</span>
-                  </div>
-                  <div className="w-full bg-stone-100 rounded-full h-2.5 overflow-hidden">
-                     <div 
-                        className="h-full rounded-full bg-gradient-to-r from-indigo-900 to-indigo-800" 
-                        style={{ width: `${Math.min(((stats?.avgSleep || 0) / 9) * 100, 100)}%` }}
-                     />
-                  </div>
-               </div>
-
-               {/* Anxiety Bar */}
-               <div>
-                  <div className="flex justify-between items-end mb-2">
-                     <span className="text-sm font-bold text-stone-700 flex items-center gap-2">
-                        <Zap className="w-4 h-4 text-teal-500" /> Anxiety Level
-                     </span>
-                     <span className="text-sm font-bold text-teal-600">{stats?.avgAnxiety.toFixed(1)} / 10</span>
-                  </div>
-                  <div className="w-full bg-stone-100 rounded-full h-2.5 overflow-hidden">
-                     <div 
-                        className="h-full rounded-full bg-gradient-to-r from-teal-400 to-teal-500" 
-                        style={{ width: `${((stats?.avgAnxiety || 0) / 10) * 100}%` }}
-                     />
-                  </div>
-               </div>
-
-               {/* Mood Bar */}
-               <div>
-                  <div className="flex justify-between items-end mb-2">
-                     <span className="text-sm font-bold text-stone-700 flex items-center gap-2">
-                        <Smile className="w-4 h-4 text-amber-400" /> Mood Stability
-                     </span>
-                     <span className="text-sm font-bold text-amber-500">{stats?.avgMood.toFixed(1)} / 10</span>
-                  </div>
-                  <div className="w-full bg-stone-100 rounded-full h-2.5 overflow-hidden">
-                     <div 
-                        className="h-full rounded-full bg-gradient-to-r from-amber-300 to-amber-400" 
-                        style={{ width: `${((stats?.avgMood || 0) / 10) * 100}%` }}
-                     />
-                  </div>
-               </div>
-            </div>
-        </div>
-
-        {/* CARD 3: MAIN CHART */}
-        <div className="bg-white p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-stone-100 md:col-span-3">
-           <div className="flex items-center justify-between mb-8">
+           <div className="flex items-center justify-between mb-4">
               <div>
                  <h3 className="text-lg font-bold text-stone-800">Symptom Trends</h3>
-                 <p className="text-xs font-medium text-stone-400 mt-0.5">Correlation between Sleep, Mood & Anxiety</p>
-              </div>
-              
-              {/* Custom Legend */}
-              <div className="flex items-center gap-4">
-                 <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-indigo-900" />
-                    <span className="text-xs font-bold text-stone-500">Sleep</span>
-                 </div>
-                 <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-teal-400" />
-                    <span className="text-xs font-bold text-stone-500">Anxiety</span>
-                 </div>
-                 <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-amber-400" />
-                    <span className="text-xs font-bold text-stone-500">Mood</span>
-                 </div>
+                 <p className="text-xs font-medium text-stone-400 mt-0.5">Sleep vs Anxiety</p>
               </div>
            </div>
 
-           <div className="h-[350px] w-full">
+           <div className="h-[200px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                  <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -316,7 +244,6 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
                        tickLine={false}
                        tick={{fill: '#94a3b8', fontSize: 11, fontWeight: 600}}
                        dy={10}
-                       interval="preserveStartEnd"
                     />
                     <YAxis 
                        axisLine={false}
@@ -324,35 +251,10 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
                        tick={{fill: '#cbd5e1', fontSize: 11, fontWeight: 600}}
                        domain={[0, 10]}
                     />
-                    <Tooltip content={<CustomTooltip />} cursor={{stroke: '#e2e8f0', strokeWidth: 2}} />
+                    <Tooltip content={<CustomTooltip />} />
                     
-                    <Line 
-                       type="monotone" 
-                       dataKey="sleepHrs" 
-                       name="Sleep"
-                       stroke="#1e3a8a" // Indigo 900
-                       strokeWidth={3}
-                       dot={false}
-                       activeDot={{r: 6, fill: '#1e3a8a', stroke: '#fff', strokeWidth: 2}}
-                    />
-                    <Line 
-                       type="monotone" 
-                       dataKey="anxietyLevel" 
-                       name="Anxiety"
-                       stroke="#2dd4bf" // Teal 400
-                       strokeWidth={3}
-                       dot={false}
-                       activeDot={{r: 6, fill: '#2dd4bf', stroke: '#fff', strokeWidth: 2}}
-                    />
-                    <Line 
-                       type="monotone" 
-                       dataKey="moodLevel" 
-                       name="Mood"
-                       stroke="#fbbf24" // Amber 400
-                       strokeWidth={3}
-                       dot={false}
-                       activeDot={{r: 6, fill: '#fbbf24', stroke: '#fff', strokeWidth: 2}}
-                    />
+                    <Line type="monotone" dataKey="sleepHrs" name="Sleep" stroke="#1e3a8a" strokeWidth={3} dot={false} />
+                    <Line type="monotone" dataKey="anxietyLevel" name="Anxiety" stroke="#2dd4bf" strokeWidth={3} dot={false} />
                  </LineChart>
               </ResponsiveContainer>
            </div>
@@ -360,71 +262,157 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
 
       </div>
 
-      {/* MODERNIZED DATA TABLE - MATCHING SCREENSHOT */}
+      {/* DETAILED LOGS TABLE */}
       <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-stone-100 overflow-hidden">
         <div className="p-6 border-b border-stone-100 flex items-center justify-between">
            <h3 className="font-bold text-stone-800 flex items-center gap-2 text-lg">
-             <Calendar className="w-5 h-5 text-stone-400" />
+             <FileText className="w-5 h-5 text-stone-400" />
              Detailed Logs
            </h3>
-           <button className="text-xs font-bold text-teal-700 bg-teal-50 px-4 py-2 rounded-full transition-colors hover:bg-teal-100">
-              Export Data
-           </button>
         </div>
         
-        <div className="overflow-x-auto custom-scrollbar">
+        <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-stone-100">
-                <th className="py-5 px-8 text-[11px] font-bold text-stone-400 uppercase tracking-wider w-[200px]">Date</th>
-                <th className="py-5 px-6 text-[11px] font-bold text-stone-400 uppercase tracking-wider">Dose</th>
-                <th className="py-5 px-6 text-[11px] font-bold text-stone-400 uppercase tracking-wider">Sleep</th>
-                <th className="py-5 px-6 text-[11px] font-bold text-stone-400 uppercase tracking-wider text-center">Status</th>
-                <th className="py-5 px-8 text-[11px] font-bold text-stone-400 uppercase tracking-wider text-right">Vitals</th>
+                <th className="py-4 px-6 text-[11px] font-bold text-stone-400 uppercase tracking-wider w-[40px]"></th>
+                <th className="py-4 px-2 text-[11px] font-bold text-stone-400 uppercase tracking-wider">Date</th>
+                <th className="py-4 px-2 text-[11px] font-bold text-stone-400 uppercase tracking-wider">Dose</th>
+                <th className="py-4 px-2 text-[11px] font-bold text-stone-400 uppercase tracking-wider">Sleep</th>
+                <th className="py-4 px-2 text-[11px] font-bold text-stone-400 uppercase tracking-wider hidden sm:table-cell">Wellness</th>
+                <th className="py-4 px-6 text-[11px] font-bold text-stone-400 uppercase tracking-wider text-right">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-50">
               {sortedLogs.slice().reverse().map((log, i) => {
-                 // Incomplete logs might look faded
-                 const opacity = log.isComplete ? 'opacity-100' : 'opacity-100'; 
+                 const isOpen = expandedRow === i;
                  return (
-                  <tr key={i} className={`hover:bg-stone-50/50 transition-colors group ${opacity}`}>
-                    <td className="py-5 px-8 whitespace-nowrap">
-                      <div className="flex flex-col">
-                        <span className="text-base font-bold text-stone-800">
-                          {new Date(log.date).toLocaleDateString(undefined, {day: 'numeric', month: 'short'})}
+                  <React.Fragment key={i}>
+                    <tr 
+                      className={`hover:bg-stone-50/50 transition-colors cursor-pointer ${isOpen ? 'bg-stone-50/80' : ''}`}
+                      onClick={() => setExpandedRow(isOpen ? null : i)}
+                    >
+                      <td className="py-4 px-6 text-stone-300">
+                         {isOpen ? <ChevronUp className="w-4 h-4 text-indigo-500" /> : <ChevronRight className="w-4 h-4" />}
+                      </td>
+                      <td className="py-4 px-2">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold text-stone-800">
+                            {new Date(log.date).toLocaleDateString(undefined, {day: 'numeric', month: 'short'})}
+                          </span>
+                          <span className="text-[10px] text-stone-400 font-bold uppercase">
+                            {new Date(log.date).toLocaleDateString(undefined, {weekday: 'short'})}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-4 px-2">
+                        <span className="inline-flex items-center gap-1.5 bg-stone-100 text-stone-600 px-2.5 py-1 rounded-full text-xs font-bold">
+                          {log.lDose}mg
                         </span>
-                        <span className="text-xs text-stone-400 font-medium">
-                          {new Date(log.date).toLocaleDateString(undefined, {weekday: 'long'})}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="py-5 px-6">
-                      <span className="inline-flex items-center gap-1.5 bg-stone-100 text-stone-600 px-3 py-1.5 rounded-full text-xs font-bold min-w-[70px] justify-center">
-                        <Pill className="w-3 h-3 text-stone-400" /> {log.lDose}mg
-                      </span>
-                    </td>
-                    <td className="py-5 px-6">
-                      <div className="text-base font-bold text-indigo-900">{log.sleepHrs}h</div>
-                    </td>
-                    <td className="py-5 px-6 text-center">
-                      <div className="flex items-center justify-center gap-1.5">
-                        {/* Status Dots matching screenshot: Cyan for Mood/Anx, Yellow for secondary */}
-                        {/* We use teal-400 (#2dd4bf) and amber-400 (#fbbf24) to match visually */}
-                        <div className="w-2.5 h-2.5 rounded-full bg-teal-400" />
-                        <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-                      </div>
-                    </td>
-                    <td className="py-5 px-8 text-right">
-                      {log.bpMorningSys ? (
-                          <div className="inline-block border border-stone-100 bg-stone-50 px-3 py-1.5 rounded-lg">
-                            <span className="text-xs font-mono font-bold text-stone-600">
-                              {log.bpMorningSys}/{log.bpMorningDia} <span className="text-stone-300 mx-1">|</span> {log.bpMorningPulse}
-                            </span>
-                          </div>
-                      ) : <span className="text-stone-300 text-xl font-light">-</span>}
-                    </td>
-                  </tr>
+                      </td>
+                      <td className="py-4 px-2">
+                        <span className="text-sm font-bold text-stone-700">{log.sleepHrs}h</span>
+                      </td>
+                      <td className="py-4 px-2 hidden sm:table-cell">
+                        <div className="flex gap-1">
+                           <div className={`w-2 h-2 rounded-full ${log.anxietyLevel > 7 ? 'bg-red-400' : 'bg-teal-400'}`} title="Anxiety" />
+                           <div className={`w-2 h-2 rounded-full ${log.moodLevel < 4 ? 'bg-orange-400' : 'bg-amber-400'}`} title="Mood" />
+                           <div className={`w-2 h-2 rounded-full ${log.depressionLevel && log.depressionLevel > 5 ? 'bg-slate-400' : 'bg-slate-200'}`} title="Depression" />
+                        </div>
+                      </td>
+                      <td className="py-4 px-6 text-right">
+                         <span className="text-xs font-bold text-indigo-600 hover:underline">
+                            {isOpen ? 'Close' : 'View Details'}
+                         </span>
+                      </td>
+                    </tr>
+                    
+                    {/* EXPANDED DETAILS */}
+                    {isOpen && (
+                       <tr>
+                          <td colSpan={6} className="p-0 border-b border-stone-100">
+                             <div className="bg-stone-50/50 p-6 md:p-8 animate-in fade-in slide-in-from-top-2">
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                                   
+                                   {/* Column 1: Vitals & Physical */}
+                                   <div className="space-y-6">
+                                      <h4 className="text-xs font-bold text-stone-400 uppercase tracking-wider flex items-center gap-2">
+                                        <HeartPulse className="w-4 h-4" /> Vitals & Physical
+                                      </h4>
+                                      <div className="grid grid-cols-2 gap-4">
+                                          <div className="bg-white p-4 rounded-xl border border-stone-100 shadow-sm">
+                                             <div className="text-[10px] text-stone-400 font-bold uppercase mb-2">Morning BP</div>
+                                             {log.bpMorningSys ? (
+                                                <div className="text-xl font-mono font-bold text-stone-800">
+                                                   {log.bpMorningSys}/{log.bpMorningDia} <span className="text-sm text-stone-400 font-sans ml-1">{log.bpMorningPulse}bpm</span>
+                                                </div>
+                                             ) : <span className="text-stone-300">-</span>}
+                                          </div>
+                                          <div className="bg-white p-4 rounded-xl border border-stone-100 shadow-sm">
+                                             <div className="text-[10px] text-stone-400 font-bold uppercase mb-2">Night BP</div>
+                                             {log.bpNightSys ? (
+                                                <div className="text-xl font-mono font-bold text-stone-800">
+                                                   {log.bpNightSys}/{log.bpNightDia} <span className="text-sm text-stone-400 font-sans ml-1">{log.bpNightPulse}bpm</span>
+                                                </div>
+                                             ) : <span className="text-stone-300">-</span>}
+                                          </div>
+                                      </div>
+                                      
+                                      <div className="bg-white p-4 rounded-xl border border-stone-100 shadow-sm space-y-3">
+                                          <div className="flex justify-between items-center">
+                                             <span className="text-xs font-bold text-stone-500">Total Sleep</span>
+                                             <span className="text-sm font-bold text-indigo-900">{log.sleepHrs} hrs</span>
+                                          </div>
+                                          <div className="flex justify-between items-center border-t border-stone-50 pt-3">
+                                             <span className="text-xs font-bold text-stone-500">Nap Duration</span>
+                                             <span className="text-sm font-bold text-stone-700">{log.napMinutes || 0} mins</span>
+                                          </div>
+                                      </div>
+                                   </div>
+
+                                   {/* Column 2: Mental & Habits */}
+                                   <div className="space-y-6">
+                                      <h4 className="text-xs font-bold text-stone-400 uppercase tracking-wider flex items-center gap-2">
+                                        <Activity className="w-4 h-4" /> Mental & Habits
+                                      </h4>
+                                      <div className="bg-white p-5 rounded-xl border border-stone-100 shadow-sm space-y-5">
+                                          <RatingBar label="Anxiety" value={log.anxietyLevel} colorClass="bg-teal-400" icon={Zap} />
+                                          <RatingBar label="Mood" value={log.moodLevel} colorClass="bg-amber-400" icon={Smile} />
+                                          <RatingBar label="Depression" value={log.depressionLevel || 1} colorClass="bg-slate-400" icon={CloudRain} />
+                                          <RatingBar label="Smoking / Cravings" value={log.smokingLevel || 1} colorClass="bg-orange-500" icon={Flame} />
+                                      </div>
+                                      <div className="flex gap-2">
+                                         <div className={`flex-1 p-3 rounded-lg border text-center ${log.brainZapLevel && log.brainZapLevel > 0 ? 'bg-blue-50 border-blue-100' : 'bg-white border-stone-100'}`}>
+                                            <div className="text-[10px] text-stone-400 font-bold uppercase">Brain Zaps</div>
+                                            <div className="font-bold text-stone-800 mt-1">
+                                               {['None', 'Mild', 'Mod', 'Severe'][log.brainZapLevel || 0]}
+                                            </div>
+                                         </div>
+                                      </div>
+                                   </div>
+
+                                   {/* Column 3: Journal */}
+                                   <div className="space-y-6">
+                                      <h4 className="text-xs font-bold text-stone-400 uppercase tracking-wider flex items-center gap-2">
+                                        <FileText className="w-4 h-4" /> Daily Notes
+                                      </h4>
+                                      <div className="bg-white p-5 rounded-xl border border-stone-100 shadow-sm h-full min-h-[200px]">
+                                         {log.dailyNote ? (
+                                            <p className="text-sm text-stone-600 leading-relaxed whitespace-pre-wrap font-medium">
+                                               {log.dailyNote}
+                                            </p>
+                                         ) : (
+                                            <p className="text-stone-300 text-sm italic">No notes recorded for this day.</p>
+                                         )}
+                                      </div>
+                                   </div>
+
+                                </div>
+                             </div>
+                          </td>
+                       </tr>
+                    )}
+                  </React.Fragment>
                  );
               })}
             </tbody>

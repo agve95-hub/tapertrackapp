@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { DAILY_SCHEDULE, TAPER_SCHEDULE } from '../constants';
 import { DailyLogEntry } from '../types';
-import { Check, Clock, Sun, Moon, Sunrise, Sunset, Activity, AlertCircle, Zap, CloudRain, BatteryCharging, PenLine, Smile, HeartPulse, CheckCircle2, RotateCcw } from 'lucide-react';
+import { Check, Clock, Sun, Moon, Sunrise, Sunset, Activity, AlertCircle, Zap, CloudRain, BatteryCharging, PenLine, Smile, HeartPulse, CheckCircle2, RotateCcw, Flame } from 'lucide-react';
 
 interface DailyTrackerProps {
   currentDate: string;
@@ -72,10 +72,7 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
   };
 
   const [formData, setFormData] = useState<DailyLogEntry>(() => {
-    // If we have passed data use it
     if (logData) return logData;
-    
-    // Fallback default
     return {
       date: currentDate,
       completedItems: {},
@@ -96,7 +93,6 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
   const [expandedNotes, setExpandedNotes] = useState<string | null>(null);
   const [showCelebration, setShowCelebration] = useState(false);
   
-  // Update local state when prop changes (e.g. date switch)
   useEffect(() => {
     if (logData) {
       setFormData(prev => ({
@@ -105,6 +101,7 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
         napMinutes: logData.napMinutes ?? 0,
         depressionLevel: logData.depressionLevel ?? 1,
         brainZapLevel: logData.brainZapLevel ?? 0,
+        smokingLevel: logData.smokingLevel ?? 5,
         dailyNote: logData.dailyNote ?? '',
         isComplete: logData.isComplete ?? false
       }));
@@ -128,7 +125,7 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
   }, [logData, currentDate]);
 
   const handleToggleItem = (itemId: string, subItem: string) => {
-    if (formData.isComplete) return; // Locked if complete
+    if (formData.isComplete) return; 
     const key = `${itemId}-${subItem}`;
     const newCompleted = {
       ...formData.completedItems,
@@ -140,7 +137,7 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
   };
 
   const handleChange = (field: keyof DailyLogEntry, value: any) => {
-    if (formData.isComplete) return; // Locked if complete
+    if (formData.isComplete) return; 
     const updated = { ...formData, [field]: value };
     setFormData(updated);
     onUpdateLog(updated);
@@ -195,7 +192,6 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
   return (
     <div className="space-y-8 pb-24 relative">
       
-      {/* Celebration Overlay */}
       {showCelebration && (
          <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none">
             <div className="bg-white/90 backdrop-blur-xl p-8 rounded-3xl shadow-2xl border border-teal-100 flex flex-col items-center animate-in zoom-in-95 duration-300">
@@ -208,7 +204,7 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
          </div>
       )}
 
-      {/* 1. Hero / Progress Status */}
+      {/* Hero */}
       <div className={`rounded-3xl p-6 relative overflow-hidden transition-all duration-500 ${
          formData.isComplete 
            ? 'bg-gradient-to-br from-teal-500 to-emerald-600 text-white shadow-lg shadow-teal-200' 
@@ -254,7 +250,7 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
-        {/* 2. Schedule Timeline (Left Column) */}
+        {/* Schedule */}
         <div className={`lg:col-span-7 space-y-6 ${formData.isComplete ? 'opacity-80 grayscale-[0.3] pointer-events-none' : ''}`}>
            <h3 className="text-lg font-bold text-stone-800 flex items-center gap-2">
              <Clock className="w-5 h-5 text-indigo-500" />
@@ -273,7 +269,6 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
                     'bg-white border-stone-100 shadow-sm'
                   }`}>
                     
-                    {/* Header */}
                     <div className="flex items-center justify-between p-4 border-b border-stone-50/50">
                       <div className="flex items-center gap-3">
                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-colors ${
@@ -304,7 +299,6 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
                     </div>
 
                     <div className="p-4 pt-3">
-                       {/* Checklist */}
                        <div className="space-y-2">
                           {slot.items.map((item, idx) => {
                              const isChecked = formData.completedItems[`${slot.id}-${item}`] || false;
@@ -332,7 +326,6 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
                           })}
                        </div>
 
-                       {/* Notes Toggle */}
                        {slot.notes.length > 0 && !formData.isComplete && (
                          <div className="mt-3">
                            <button 
@@ -358,7 +351,6 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
                          </div>
                        )}
 
-                       {/* BP Entry */}
                        {slot.requiresBP && (
                           <div className="mt-4 pt-4 border-t border-stone-100">
                             <label className="text-xs font-bold text-rose-600 uppercase tracking-wide mb-2 flex items-center gap-2">
@@ -411,7 +403,7 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
            </div>
         </div>
 
-        {/* 3. Daily Check-in Column (Right Column) */}
+        {/* Check-in Column */}
         <div className="lg:col-span-5">
           <div className="sticky top-24 space-y-6">
             <h3 className="text-lg font-bold text-stone-800 flex items-center gap-2">
@@ -419,7 +411,6 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
                End of Day Check-in
             </h3>
             
-            {/* If Complete, show Summary Card */}
             {formData.isComplete ? (
                <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-stone-100 p-6 space-y-6 animate-in fade-in slide-in-from-bottom-4">
                   <div className="text-center py-4 border-b border-stone-100">
@@ -435,7 +426,7 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
                         <span className="text-sm font-bold text-stone-600 flex items-center gap-2">
                            <Moon className="w-4 h-4 text-indigo-500" /> Sleep
                         </span>
-                        <span className="text-sm font-bold text-stone-900">{formData.sleepHrs}h</span>
+                        <span className="text-sm font-bold text-stone-900">{formData.sleepHrs}h (+{formData.napMinutes || 0}m)</span>
                      </div>
                      <div className="flex justify-between items-center bg-stone-50 p-3 rounded-xl border border-stone-100">
                         <span className="text-sm font-bold text-stone-600 flex items-center gap-2">
@@ -467,10 +458,9 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
                   </button>
                </div>
             ) : (
-               // If Incomplete, show Form
                <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-stone-100 p-6 space-y-8 relative overflow-hidden">
                  
-                 {/* Dosage Config (Compact) */}
+                 {/* Dosage Config */}
                  <div className="bg-stone-50 rounded-xl p-4 border border-stone-100">
                    <div className="flex justify-between items-center mb-3">
                       <label className="text-xs font-bold text-stone-500 uppercase tracking-wider">Active Dosage</label>
@@ -508,15 +498,30 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
                  <div className="space-y-6">
                    
                    {/* Sleep */}
-                   <TouchSlider 
-                      label="Sleep Duration" 
-                      value={formData.sleepHrs} 
-                      onChange={(v: number) => handleChange('sleepHrs', v)} 
-                      min={0} max={12} step={0.5} 
-                      icon={Moon} 
-                      colorClass="text-indigo-500"
-                      valueSuffix="h"
-                   />
+                   <div className="relative">
+                      <TouchSlider 
+                          label="Sleep Duration" 
+                          value={formData.sleepHrs} 
+                          onChange={(v: number) => handleChange('sleepHrs', v)} 
+                          min={0} max={12} step={0.5} 
+                          icon={Moon} 
+                          colorClass="text-indigo-500"
+                          valueSuffix="h"
+                      />
+                      <div className="flex justify-end px-2 -mt-2 mb-2">
+                          <div className="flex items-center gap-2 bg-stone-50 rounded-lg px-2 py-1 border border-stone-100 mt-2">
+                             <span className="text-[10px] font-bold text-stone-400 uppercase">Nap</span>
+                             <input 
+                                type="number" 
+                                value={formData.napMinutes || 0}
+                                onChange={(e) => handleChange('napMinutes', parseInt(e.target.value) || 0)}
+                                className="w-12 bg-transparent text-xs font-bold text-stone-700 text-right focus:outline-none"
+                                placeholder="0"
+                             />
+                             <span className="text-[10px] font-bold text-stone-400">min</span>
+                          </div>
+                      </div>
+                   </div>
 
                    <div className="h-px bg-stone-100" />
 
@@ -530,6 +535,16 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
                       colorClass="text-teal-500"
                    />
 
+                   {/* Depression */}
+                   <TouchSlider 
+                      label="Depression" 
+                      value={formData.depressionLevel || 1} 
+                      onChange={(v: number) => handleChange('depressionLevel', v)} 
+                      min={1} max={10} 
+                      icon={CloudRain} 
+                      colorClass="text-slate-500"
+                   />
+
                    {/* Mood */}
                    <TouchSlider 
                       label="Overall Mood" 
@@ -538,6 +553,18 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
                       min={1} max={10} 
                       icon={Smile} 
                       colorClass="text-amber-500"
+                   />
+                   
+                   <div className="h-px bg-stone-100" />
+
+                   {/* Smoking */}
+                   <TouchSlider 
+                      label="Smoking / Cravings" 
+                      value={formData.smokingLevel} 
+                      onChange={(v: number) => handleChange('smokingLevel', v)} 
+                      min={1} max={10} 
+                      icon={Flame} 
+                      colorClass="text-orange-600"
                    />
 
                    <div className="h-px bg-stone-100" />

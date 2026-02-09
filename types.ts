@@ -28,12 +28,18 @@ export interface DailyLogEntry {
   bDose: string;
   sleepHrs: number;
   napMinutes?: number; // New: Nap duration
+  
+  // Wellness Metrics
+  energyLevel: number; // New: 1-10
   anxietyLevel: number; // 1-10
   moodLevel: number; // 1-10
   depressionLevel?: number; // New: 1-10
   brainZapLevel?: number; // New: 0=None, 1=Mild, 2=Mod, 3=Severe
   smokingLevel: number; // 1-10
   
+  // Context
+  factors?: string[]; // New: ["Caffeine", "Exercise", etc.]
+
   // Blood Pressure & Heart Rate
   bpMorningSys?: number;
   bpMorningDia?: number;

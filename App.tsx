@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect, useRef } from 'react';
 import { ViewState, DailyLogEntry, TaperStep, UserSettings, AuthResponse, InventoryData } from './types';
 import { TAPER_SCHEDULE } from './constants';
@@ -215,11 +217,13 @@ const App: React.FC = () => {
         bDose: lastLog.bDose,
         sleepHrs: 7,
         napMinutes: 0,
+        energyLevel: 5,
         anxietyLevel: 5,
         moodLevel: 5,
         depressionLevel: 1,
         brainZapLevel: 0,
         smokingLevel: 5,
+        factors: [],
         dailyNote: ''
       };
     }

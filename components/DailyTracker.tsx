@@ -1,9 +1,9 @@
 
 
 import React, { useState, useEffect } from 'react';
-import { DAILY_SCHEDULE, TAPER_SCHEDULE } from '../constants';
+import { DAILY_SCHEDULE, TAPER_SCHEDULE, TRACKING_FACTORS } from '../constants';
 import { DailyLogEntry, InventoryData } from '../types';
-import { Check, Clock, Sun, Moon, Sunrise, Sunset, Activity, AlertCircle, Zap, CloudRain, BatteryCharging, PenLine, Smile, HeartPulse, CheckCircle2, RotateCcw, Flame, Package } from 'lucide-react';
+import { Check, Clock, Sun, Moon, Sunrise, Sunset, Activity, AlertCircle, Zap, CloudRain, BatteryCharging, PenLine, Smile, HeartPulse, CheckCircle2, RotateCcw, Flame, Package, Coffee, Wine, Dumbbell, Users, AlertTriangle, Monitor, Flower2, Utensils } from 'lucide-react';
 
 interface DailyTrackerProps {
   currentDate: string;
@@ -83,11 +83,13 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
       bDose: '',
       sleepHrs: 7,
       napMinutes: 0,
+      energyLevel: 5,
       anxietyLevel: 5,
       moodLevel: 5,
       depressionLevel: 1,
       brainZapLevel: 0,
       smokingLevel: 5,
+      factors: [],
       dailyNote: '',
       isComplete: false
     };
@@ -102,9 +104,11 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
         ...prev,
         ...logData,
         napMinutes: logData.napMinutes ?? 0,
+        energyLevel: logData.energyLevel ?? 5,
         depressionLevel: logData.depressionLevel ?? 1,
         brainZapLevel: logData.brainZapLevel ?? 0,
         smokingLevel: logData.smokingLevel ?? 5,
+        factors: logData.factors ?? [],
         dailyNote: logData.dailyNote ?? '',
         isComplete: logData.isComplete ?? false
       }));
@@ -116,11 +120,13 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
         bDose: '',
         sleepHrs: 7,
         napMinutes: 0,
+        energyLevel: 5,
         anxietyLevel: 5,
         moodLevel: 5,
         depressionLevel: 1,
         brainZapLevel: 0,
         smokingLevel: 5,
+        factors: [],
         dailyNote: '',
         isComplete: false
       });
@@ -144,6 +150,15 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
     const updated = { ...formData, [field]: value };
     setFormData(updated);
     onUpdateLog(updated);
+  };
+
+  const toggleFactor = (factorId: string) => {
+    if (formData.isComplete) return;
+    const currentFactors = formData.factors || [];
+    const newFactors = currentFactors.includes(factorId)
+      ? currentFactors.filter(f => f !== factorId)
+      : [...currentFactors, factorId];
+    handleChange('factors', newFactors);
   };
 
   const handleBPChange = (period: 'Morning' | 'Night', type: 'Sys' | 'Dia' | 'Pulse', value: string) => {
@@ -188,6 +203,21 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
       case 'bedtime': return <Moon className="w-5 h-5 text-violet-500" />;
       default: return <Clock className="w-5 h-5 text-stone-400" />;
     }
+  };
+
+  const getFactorIcon = (id: string) => {
+      switch(id) {
+          case 'caffeine': return <Coffee className="w-4 h-4" />;
+          case 'alcohol': return <Wine className="w-4 h-4" />;
+          case 'exercise': return <Dumbbell className="w-4 h-4" />;
+          case 'social': return <Users className="w-4 h-4" />;
+          case 'outdoors': return <Sun className="w-4 h-4" />;
+          case 'meditation': return <Flower2 className="w-4 h-4" />;
+          case 'screens': return <Monitor className="w-4 h-4" />;
+          case 'stress': return <AlertTriangle className="w-4 h-4" />;
+          case 'sugar': return <Utensils className="w-4 h-4" />;
+          default: return <Activity className="w-4 h-4" />;
+      }
   };
 
   const adherence = getProgress();
@@ -288,148 +318,157 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
         <div className={`lg:col-span-7 space-y-6 ${formData.isComplete ? 'opacity-80 grayscale-[0.3] pointer-events-none' : ''}`}>
            <h3 className="text-lg font-bold text-stone-800 flex items-center gap-2">
              <Clock className="w-5 h-5 text-indigo-500" />
-             Medication & Schedule
+             Medication & Routine
            </h3>
            
            <div className="space-y-4">
-              {DAILY_SCHEDULE.map((slot) => {
+              {DAILY_SCHEDULE.map((slot, index) => {
                 const isCurrent = slot.id === getCurrentPeriodId() && new Date(currentDate).toDateString() === new Date().toDateString();
                 const allDone = slot.items.every(item => formData.completedItems[`${slot.id}-${item}`]);
+                
+                // Timeline Connector
+                const isLast = index === DAILY_SCHEDULE.length - 1;
 
                 return (
-                  <div key={slot.id} className={`group relative transition-all duration-300 rounded-2xl border overflow-hidden ${
-                    allDone ? 'bg-stone-50/50 border-stone-100 opacity-90' : 
-                    isCurrent && !formData.isComplete ? 'bg-white border-indigo-200 ring-4 ring-indigo-50 shadow-lg shadow-indigo-100/50' : 
-                    'bg-white border-stone-100 shadow-sm'
-                  }`}>
+                  <div key={slot.id} className="relative pl-8">
+                    {/* Timeline Line */}
+                    {!isLast && <div className="absolute left-[15px] top-10 bottom-[-16px] w-0.5 bg-stone-100"></div>}
                     
-                    <div className="flex items-center justify-between p-4 border-b border-stone-50/50">
-                      <div className="flex items-center gap-3">
-                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-colors ${
-                            isCurrent && !formData.isComplete ? 'bg-indigo-50 border-indigo-100' : 'bg-white border-stone-100'
-                         }`}>
-                           {getTimeIcon(slot.label)}
-                         </div>
-                         <div>
-                           <div className="flex items-center gap-2">
-                             <div className={`font-bold ${isCurrent && !formData.isComplete ? 'text-indigo-900' : 'text-stone-800'}`}>{slot.label}</div>
-                             {isCurrent && !formData.isComplete && <span className="flex h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />}
-                           </div>
-                           <div className="text-xs text-stone-400 font-medium">{slot.time}</div>
-                         </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {slot.conditional && (
-                          <span className="text-[10px] bg-amber-50 text-amber-700 px-2 py-1 rounded-full font-bold uppercase border border-amber-100">
-                            PRN
-                          </span>
-                        )}
-                        {allDone && (
-                          <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center animate-in zoom-in duration-200">
-                            <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />
-                          </div>
-                        )}
-                      </div>
+                    {/* Timeline Dot */}
+                    <div className={`absolute left-0 top-6 w-8 h-8 rounded-full border-2 flex items-center justify-center z-10 bg-white transition-colors ${
+                        allDone 
+                        ? 'border-green-500 text-green-500' 
+                        : isCurrent 
+                            ? 'border-indigo-500 text-indigo-500' 
+                            : 'border-stone-200 text-stone-300'
+                    }`}>
+                         {allDone ? <Check className="w-4 h-4" strokeWidth={3} /> : getTimeIcon(slot.label)}
                     </div>
 
-                    <div className="p-4 pt-3">
-                       <div className="space-y-2">
-                          {slot.items.map((item, idx) => {
-                             const isChecked = formData.completedItems[`${slot.id}-${item}`] || false;
-                             return (
-                               <button
-                                 key={idx}
-                                 onClick={() => handleToggleItem(slot.id, item)}
-                                 disabled={formData.isComplete}
-                                 className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all duration-200 ${
-                                   isChecked 
-                                     ? 'bg-stone-50 border-transparent text-stone-400' 
-                                     : 'bg-white border-stone-200 hover:border-indigo-300 hover:shadow-sm'
-                                 } ${formData.isComplete ? 'cursor-default' : 'cursor-pointer'}`}
-                               >
-                                 <span className={`text-sm font-medium text-left ${isChecked ? 'line-through decoration-stone-300' : 'text-stone-700'}`}>
-                                   {item}
-                                 </span>
-                                 <div className={`w-5 h-5 rounded flex items-center justify-center border transition-all ${
-                                   isChecked ? 'bg-stone-300 border-stone-300' : 'bg-white border-stone-300'
-                                 }`}>
-                                   {isChecked && <Check className="w-3 h-3 text-white" />}
-                                 </div>
-                               </button>
-                             )
-                          })}
-                       </div>
-
-                       {slot.notes.length > 0 && !formData.isComplete && (
-                         <div className="mt-3">
-                           <button 
-                             onClick={() => setExpandedNotes(expandedNotes === slot.id ? null : slot.id)}
-                             className="text-[10px] font-bold text-stone-400 hover:text-indigo-600 flex items-center gap-1 transition-colors uppercase tracking-wider"
-                           >
-                             <AlertCircle className="w-3 h-3" />
-                             {expandedNotes === slot.id ? 'Hide Tips' : 'Tips'}
-                           </button>
-                           
-                           {expandedNotes === slot.id && (
-                             <div className="mt-2 bg-indigo-50/50 p-3 rounded-lg border border-indigo-100 animate-in fade-in slide-in-from-top-1 duration-200">
-                               <ul className="space-y-1">
-                                 {slot.notes.map((note, i) => (
-                                   <li key={i} className="text-xs text-indigo-900/70 flex items-start gap-2 leading-relaxed">
-                                     <span className="mt-1.5 w-1 h-1 bg-indigo-400 rounded-full flex-shrink-0" />
-                                     {note}
-                                   </li>
-                                 ))}
-                               </ul>
-                             </div>
-                           )}
-                         </div>
-                       )}
-
-                       {slot.requiresBP && (
-                          <div className="mt-4 pt-4 border-t border-stone-100">
-                            <label className="text-xs font-bold text-rose-600 uppercase tracking-wide mb-2 flex items-center gap-2">
-                              <HeartPulse className="w-3 h-3" /> BP & Pulse
-                            </label>
-                            
+                    <div className={`group relative transition-all duration-300 rounded-2xl border overflow-hidden ${
+                        allDone ? 'bg-stone-50/50 border-stone-100 opacity-90' : 
+                        isCurrent && !formData.isComplete ? 'bg-white border-indigo-200 ring-4 ring-indigo-50 shadow-lg shadow-indigo-100/50' : 
+                        'bg-white border-stone-100 shadow-sm'
+                    }`}>
+                        
+                        <div className="flex items-center justify-between p-4 border-b border-stone-50/50">
+                        <div className="flex items-center gap-3">
+                            <div>
                             <div className="flex items-center gap-2">
-                                <div className="flex-1 relative">
-                                  <input 
-                                    type="number" 
-                                    placeholder="120"
-                                    value={slot.id.includes('morning') ? formData.bpMorningSys || '' : formData.bpNightSys || ''}
-                                    onChange={(e) => handleBPChange(slot.id.includes('morning') ? 'Morning' : 'Night', 'Sys', e.target.value)}
+                                <div className={`font-bold ${isCurrent && !formData.isComplete ? 'text-indigo-900' : 'text-stone-800'}`}>{slot.label}</div>
+                                {isCurrent && !formData.isComplete && <span className="flex h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />}
+                            </div>
+                            <div className="text-xs text-stone-400 font-medium">{slot.time}</div>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            {slot.conditional && (
+                            <span className="text-[10px] bg-amber-50 text-amber-700 px-2 py-1 rounded-full font-bold uppercase border border-amber-100">
+                                PRN
+                            </span>
+                            )}
+                        </div>
+                        </div>
+
+                        <div className="p-4 pt-3">
+                        <div className="space-y-2">
+                            {slot.items.map((item, idx) => {
+                                const isChecked = formData.completedItems[`${slot.id}-${item}`] || false;
+                                return (
+                                <button
+                                    key={idx}
+                                    onClick={() => handleToggleItem(slot.id, item)}
                                     disabled={formData.isComplete}
-                                    className="w-full pl-3 pr-2 py-2 bg-stone-50 border border-stone-200 rounded-lg text-sm font-bold text-stone-700 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-300 text-center disabled:opacity-70"
-                                  />
-                                  <div className="text-[9px] text-stone-400 text-center mt-1 font-semibold">SYS</div>
+                                    className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all duration-200 ${
+                                    isChecked 
+                                        ? 'bg-stone-50 border-transparent text-stone-400' 
+                                        : 'bg-white border-stone-200 hover:border-indigo-300 hover:shadow-sm'
+                                    } ${formData.isComplete ? 'cursor-default' : 'cursor-pointer'}`}
+                                >
+                                    <span className={`text-sm font-medium text-left ${isChecked ? 'line-through decoration-stone-300' : 'text-stone-700'}`}>
+                                    {item}
+                                    </span>
+                                    <div className={`w-5 h-5 rounded flex items-center justify-center border transition-all ${
+                                    isChecked ? 'bg-stone-300 border-stone-300' : 'bg-white border-stone-300'
+                                    }`}>
+                                    {isChecked && <Check className="w-3 h-3 text-white" />}
+                                    </div>
+                                </button>
+                                )
+                            })}
+                        </div>
+
+                        {slot.notes.length > 0 && !formData.isComplete && (
+                            <div className="mt-3">
+                            <button 
+                                onClick={() => setExpandedNotes(expandedNotes === slot.id ? null : slot.id)}
+                                className="text-[10px] font-bold text-stone-400 hover:text-indigo-600 flex items-center gap-1 transition-colors uppercase tracking-wider"
+                            >
+                                <AlertCircle className="w-3 h-3" />
+                                {expandedNotes === slot.id ? 'Hide Tips' : 'Tips'}
+                            </button>
+                            
+                            {expandedNotes === slot.id && (
+                                <div className="mt-2 bg-indigo-50/50 p-3 rounded-lg border border-indigo-100 animate-in fade-in slide-in-from-top-1 duration-200">
+                                <ul className="space-y-1">
+                                    {slot.notes.map((note, i) => (
+                                    <li key={i} className="text-xs text-indigo-900/70 flex items-start gap-2 leading-relaxed">
+                                        <span className="mt-1.5 w-1 h-1 bg-indigo-400 rounded-full flex-shrink-0" />
+                                        {note}
+                                    </li>
+                                    ))}
+                                </ul>
                                 </div>
-                                <span className="text-stone-300 text-xl font-light">/</span>
-                                <div className="flex-1 relative">
-                                  <input 
-                                    type="number" 
-                                    placeholder="80"
-                                    value={slot.id.includes('morning') ? formData.bpMorningDia || '' : formData.bpNightDia || ''}
-                                    onChange={(e) => handleBPChange(slot.id.includes('morning') ? 'Morning' : 'Night', 'Dia', e.target.value)}
-                                    disabled={formData.isComplete}
-                                    className="w-full pl-3 pr-2 py-2 bg-stone-50 border border-stone-200 rounded-lg text-sm font-bold text-stone-700 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-300 text-center disabled:opacity-70"
-                                  />
-                                  <div className="text-[9px] text-stone-400 text-center mt-1 font-semibold">DIA</div>
-                                </div>
-                                <div className="w-px h-8 bg-stone-100 mx-1"></div>
-                                <div className="flex-1 relative">
-                                  <input 
-                                    type="number" 
-                                    placeholder="60"
-                                    value={slot.id.includes('morning') ? formData.bpMorningPulse || '' : formData.bpNightPulse || ''}
-                                    onChange={(e) => handleBPChange(slot.id.includes('morning') ? 'Morning' : 'Night', 'Pulse', e.target.value)}
-                                    disabled={formData.isComplete}
-                                    className="w-full pl-3 pr-2 py-2 bg-stone-50 border border-stone-200 rounded-lg text-sm font-bold text-stone-700 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-300 text-center disabled:opacity-70"
-                                  />
-                                  <div className="text-[9px] text-stone-400 text-center mt-1 font-semibold">BPM</div>
+                            )}
+                            </div>
+                        )}
+
+                        {slot.requiresBP && (
+                            <div className="mt-4 pt-4 border-t border-stone-100">
+                                <label className="text-xs font-bold text-rose-600 uppercase tracking-wide mb-2 flex items-center gap-2">
+                                <HeartPulse className="w-3 h-3" /> BP & Pulse
+                                </label>
+                                
+                                <div className="flex items-center gap-2">
+                                    <div className="flex-1 relative">
+                                    <input 
+                                        type="number" 
+                                        placeholder="120"
+                                        value={slot.id.includes('morning') ? formData.bpMorningSys || '' : formData.bpNightSys || ''}
+                                        onChange={(e) => handleBPChange(slot.id.includes('morning') ? 'Morning' : 'Night', 'Sys', e.target.value)}
+                                        disabled={formData.isComplete}
+                                        className="w-full pl-3 pr-2 py-2 bg-stone-50 border border-stone-200 rounded-lg text-sm font-bold text-stone-700 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-300 text-center disabled:opacity-70"
+                                    />
+                                    <div className="text-[9px] text-stone-400 text-center mt-1 font-semibold">SYS</div>
+                                    </div>
+                                    <span className="text-stone-300 text-xl font-light">/</span>
+                                    <div className="flex-1 relative">
+                                    <input 
+                                        type="number" 
+                                        placeholder="80"
+                                        value={slot.id.includes('morning') ? formData.bpMorningDia || '' : formData.bpNightDia || ''}
+                                        onChange={(e) => handleBPChange(slot.id.includes('morning') ? 'Morning' : 'Night', 'Dia', e.target.value)}
+                                        disabled={formData.isComplete}
+                                        className="w-full pl-3 pr-2 py-2 bg-stone-50 border border-stone-200 rounded-lg text-sm font-bold text-stone-700 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-300 text-center disabled:opacity-70"
+                                    />
+                                    <div className="text-[9px] text-stone-400 text-center mt-1 font-semibold">DIA</div>
+                                    </div>
+                                    <div className="w-px h-8 bg-stone-100 mx-1"></div>
+                                    <div className="flex-1 relative">
+                                    <input 
+                                        type="number" 
+                                        placeholder="60"
+                                        value={slot.id.includes('morning') ? formData.bpMorningPulse || '' : formData.bpNightPulse || ''}
+                                        onChange={(e) => handleBPChange(slot.id.includes('morning') ? 'Morning' : 'Night', 'Pulse', e.target.value)}
+                                        disabled={formData.isComplete}
+                                        className="w-full pl-3 pr-2 py-2 bg-stone-50 border border-stone-200 rounded-lg text-sm font-bold text-stone-700 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-300 text-center disabled:opacity-70"
+                                    />
+                                    <div className="text-[9px] text-stone-400 text-center mt-1 font-semibold">BPM</div>
+                                    </div>
                                 </div>
                             </div>
-                          </div>
-                       )}
+                        )}
+                        </div>
                     </div>
                   </div>
                 );
@@ -460,27 +499,17 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
                         <span className="text-sm font-bold text-stone-600 flex items-center gap-2">
                            <Moon className="w-4 h-4 text-indigo-500" /> Sleep
                         </span>
-                        <span className="text-sm font-bold text-stone-900">{formData.sleepHrs}h (+{formData.napMinutes || 0}m)</span>
+                        <span className="text-sm font-bold text-stone-900">{formData.sleepHrs}h</span>
                      </div>
-                     <div className="flex justify-between items-center bg-stone-50 p-3 rounded-xl border border-stone-100">
-                        <span className="text-sm font-bold text-stone-600 flex items-center gap-2">
-                           <Zap className="w-4 h-4 text-teal-500" /> Anxiety
-                        </span>
-                        <div className="flex gap-1">
-                           {[...Array(formData.anxietyLevel)].map((_, i) => (
-                              <div key={i} className="w-1.5 h-3 bg-teal-400 rounded-full" />
-                           ))}
-                        </div>
-                     </div>
-                     <div className="flex justify-between items-center bg-stone-50 p-3 rounded-xl border border-stone-100">
-                        <span className="text-sm font-bold text-stone-600 flex items-center gap-2">
-                           <Smile className="w-4 h-4 text-amber-500" /> Mood
-                        </span>
-                        <div className="flex gap-1">
-                           {[...Array(formData.moodLevel)].map((_, i) => (
-                              <div key={i} className="w-1.5 h-3 bg-amber-400 rounded-full" />
-                           ))}
-                        </div>
+                     <div className="flex flex-wrap gap-2">
+                        {formData.factors && formData.factors.map(f => {
+                           const def = TRACKING_FACTORS.find(tf => tf.id === f);
+                           return def ? (
+                               <div key={f} className="text-xs bg-stone-100 text-stone-600 px-2 py-1 rounded-lg font-bold flex items-center gap-1">
+                                   {getFactorIcon(f)} {def.label}
+                               </div>
+                           ) : null
+                        })}
                      </div>
                   </div>
 
@@ -528,6 +557,36 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
                    </div>
                  </div>
 
+                 {/* Factors (New Section) */}
+                 <div>
+                    <label className="text-sm font-bold text-stone-700 mb-3 block flex items-center gap-2">
+                        <Activity className="w-4 h-4 text-stone-400" /> Daily Factors
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                        {TRACKING_FACTORS.map(factor => {
+                            const isSelected = (formData.factors || []).includes(factor.id);
+                            return (
+                                <button
+                                    key={factor.id}
+                                    onClick={() => toggleFactor(factor.id)}
+                                    className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 ${
+                                        isSelected 
+                                            ? factor.type === 'positive' 
+                                                ? 'bg-emerald-50 border-emerald-200 text-emerald-700' 
+                                                : 'bg-rose-50 border-rose-200 text-rose-700'
+                                            : 'bg-white border-stone-200 text-stone-500 hover:border-stone-300'
+                                    }`}
+                                >
+                                    {getFactorIcon(factor.id)}
+                                    {factor.label}
+                                </button>
+                            );
+                        })}
+                    </div>
+                 </div>
+
+                 <div className="h-px bg-stone-100" />
+
                  {/* Sliders Section */}
                  <div className="space-y-6">
                    
@@ -556,6 +615,16 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
                           </div>
                       </div>
                    </div>
+                   
+                   {/* Energy (New) */}
+                   <TouchSlider 
+                      label="Energy Level" 
+                      value={formData.energyLevel || 5} 
+                      onChange={(v: number) => handleChange('energyLevel', v)} 
+                      min={1} max={10} 
+                      icon={BatteryCharging} 
+                      colorClass="text-yellow-500"
+                   />
 
                    <div className="h-px bg-stone-100" />
 
@@ -569,16 +638,6 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
                       colorClass="text-teal-500"
                    />
 
-                   {/* Depression */}
-                   <TouchSlider 
-                      label="Depression" 
-                      value={formData.depressionLevel || 1} 
-                      onChange={(v: number) => handleChange('depressionLevel', v)} 
-                      min={1} max={10} 
-                      icon={CloudRain} 
-                      colorClass="text-slate-500"
-                   />
-
                    {/* Mood */}
                    <TouchSlider 
                       label="Overall Mood" 
@@ -587,6 +646,16 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
                       min={1} max={10} 
                       icon={Smile} 
                       colorClass="text-amber-500"
+                   />
+
+                   {/* Depression */}
+                   <TouchSlider 
+                      label="Depression" 
+                      value={formData.depressionLevel || 1} 
+                      onChange={(v: number) => handleChange('depressionLevel', v)} 
+                      min={1} max={10} 
+                      icon={CloudRain} 
+                      colorClass="text-slate-500"
                    />
                    
                    <div className="h-px bg-stone-100" />
@@ -606,7 +675,7 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
                    {/* Brain Zaps */}
                    <div className="space-y-3">
                      <label className="flex items-center gap-2 text-sm font-bold text-stone-700">
-                       <BatteryCharging className="w-4 h-4 text-blue-500" /> Brain Zaps
+                       <Activity className="w-4 h-4 text-blue-500" /> Brain Zaps
                      </label>
                      <div className="grid grid-cols-4 gap-2">
                        {['None', 'Mild', 'Mod', 'Severe'].map((label, idx) => {

@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { DailyLogEntry } from '../types';
+import { TRACKING_FACTORS } from '../constants';
 import { 
   AreaChart, 
   Area, 
@@ -12,9 +13,12 @@ import {
   CartesianGrid, 
   Tooltip, 
   ResponsiveContainer,
-  Legend
+  Legend,
+  BarChart,
+  Bar,
+  ReferenceLine
 } from 'recharts';
-import { Calendar, FileText, ChevronDown, Activity, TrendingDown, TrendingUp, Minus, Pill, Moon, Zap, Smile, HeartPulse, CloudRain, BatteryCharging, Flame, ChevronRight, ChevronUp, Download } from 'lucide-react';
+import { Calendar, FileText, ChevronDown, Activity, TrendingDown, TrendingUp, Minus, Pill, Moon, Zap, Smile, HeartPulse, CloudRain, BatteryCharging, Flame, ChevronRight, ChevronUp, Download, Sparkles, AlertCircle, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 
 interface HistoryAnalyticsProps {
   logs: DailyLogEntry[];
@@ -30,6 +34,20 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
     return [...logs].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [logs]);
 
+  // --- METRIC CALCULATION ---
+  // Calculates a 0-100 score based on Mood (High is good), Energy (High is good), Anxiety (Low is good), Depression (Low is good)
+  const calculateWellnessScore = (log: DailyLogEntry) => {
+    const mood = log.moodLevel || 5;
+    const energy = log.energyLevel || 5;
+    const anxiety = log.anxietyLevel || 5;
+    const depression = log.depressionLevel || 1;
+    
+    // Inverse negative stats to make them positive contributors (10 - val)
+    // Formula: (Mood + Energy + (10 - Anxiety) + (10 - Depression)) / 4 * 10
+    const rawScore = (mood + energy + (10 - anxiety) + (10 - depression)) / 4;
+    return Math.round(rawScore * 10);
+  };
+
   const stats = useMemo(() => {
     if (logs.length === 0) return null;
     
@@ -42,11 +60,31 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
 
     const current = sortedLogs[sortedLogs.length - 1];
     
+    // Calculate insights (correlations)
+    const correlations = TRACKING_FACTORS.map(factor => {
+        const withFactor = logs.filter(l => (l.factors || []).includes(factor.id));
+        const withoutFactor = logs.filter(l => !(l.factors || []).includes(factor.id));
+        
+        if (withFactor.length < 3 || withoutFactor.length < 3) return null; // Need data
+
+        const scoreWith = withFactor.reduce((acc, l) => acc + calculateWellnessScore(l), 0) / withFactor.length;
+        const scoreWithout = withoutFactor.reduce((acc, l) => acc + calculateWellnessScore(l), 0) / withoutFactor.length;
+        
+        const diff = scoreWith - scoreWithout;
+        
+        return {
+            factor,
+            diff,
+            isSignificant: Math.abs(diff) > 5
+        };
+    }).filter(c => c && c.isSignificant).sort((a, b) => Math.abs(b!.diff) - Math.abs(a!.diff));
+
     return {
       currentDose: current.lDose,
       avgSleep: avg(last7, 'sleepHrs'),
-      avgAnxiety: avg(last7, 'anxietyLevel'),
-      avgMood: avg(last7, 'moodLevel'),
+      wellnessScore: calculateWellnessScore(current),
+      wellnessTrend: sortedLogs.map(l => ({ date: l.date, score: calculateWellnessScore(l) })),
+      correlations: correlations.slice(0, 3) // Top 3 insights
     };
   }, [logs, sortedLogs]);
 
@@ -60,6 +98,8 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
       anxietyLevel: l.anxietyLevel || 0,
       moodLevel: l.moodLevel || 0,
       depressionLevel: l.depressionLevel || 0,
+      energyLevel: l.energyLevel || 5,
+      wellnessScore: calculateWellnessScore(l)
     });
 
     if (viewMode === 'daily') {
@@ -94,6 +134,8 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
          return Number((sum / valid.length).toFixed(1));
        };
 
+       const avgScore = group.reduce((acc, l) => acc + calculateWellnessScore(l), 0) / group.length;
+
        return {
          date: dateKey,
          dateFormatted: viewMode === 'monthly' 
@@ -102,49 +144,58 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
          anxietyLevel: avg('anxietyLevel'),
          moodLevel: avg('moodLevel'),
          depressionLevel: avg('depressionLevel'),
+         energyLevel: avg('energyLevel'),
          sleepHrs: avg('sleepHrs'),
          lDose: avg('lDose'),
+         wellnessScore: Math.round(avgScore)
        };
     });
   }, [logs, viewMode, sortedLogs]);
 
+  // Heatmap Data Builder (Last 30 days grid)
+  const heatmapData = useMemo(() => {
+     const today = new Date();
+     const days = [];
+     for(let i=29; i>=0; i--) {
+        const d = new Date();
+        d.setDate(today.getDate() - i);
+        const dateStr = d.toISOString().split('T')[0];
+        const log = logs.find(l => l.date === dateStr);
+        days.push({
+            date: dateStr,
+            dayName: d.toLocaleDateString(undefined, {weekday: 'narrow'}),
+            score: log ? calculateWellnessScore(log) : null
+        });
+     }
+     return days;
+  }, [logs]);
+
   const downloadCSV = () => {
     if (logs.length === 0) return;
-
-    // Headers
-    const headers = ['Date', 'Dose (mg)', 'Sleep (hrs)', 'Anxiety (1-10)', 'Mood (1-10)', 'Depression (1-10)', 'Notes'];
-    
-    // Rows
+    const headers = ['Date', 'Dose', 'Wellness Score', 'Energy', 'Sleep', 'Anxiety', 'Mood', 'Factors', 'Notes'];
     const rows = sortedLogs.map(log => [
         log.date,
         log.lDose,
+        calculateWellnessScore(log),
+        log.energyLevel || 5,
         log.sleepHrs,
         log.anxietyLevel,
         log.moodLevel,
-        log.depressionLevel || '',
-        `"${(log.dailyNote || '').replace(/"/g, '""')}"` // Escape quotes in notes
+        `"${(log.factors || []).join(', ')}"`,
+        `"${(log.dailyNote || '').replace(/"/g, '""')}"`
     ]);
-
-    const csvContent = [
-        headers.join(','),
-        ...rows.map(e => e.join(','))
-    ].join('\n');
-
+    const csvContent = [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `taper_report_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
+    link.href = URL.createObjectURL(blob);
+    link.download = `wellness_report_${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
-    document.body.removeChild(link);
   };
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white p-4 rounded-xl shadow-xl border border-stone-100 text-xs z-50">
+        <div className="bg-white/95 backdrop-blur-sm p-4 rounded-xl shadow-xl border border-stone-100 text-xs z-50">
           <p className="font-bold text-stone-900 mb-3 text-sm">{label}</p>
           <div className="space-y-2">
              {payload.map((entry: any, index: number) => (
@@ -162,31 +213,6 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
     }
     return null;
   };
-
-  const RatingBar = ({ label, value, colorClass, icon: Icon }: any) => (
-      <div className="space-y-1">
-          <div className="flex justify-between items-center text-xs">
-              <span className="font-semibold text-stone-500 flex items-center gap-1.5"><Icon className="w-3 h-3" /> {label}</span>
-              <span className={`font-bold ${colorClass.replace('bg-', 'text-')}`}>{value}/10</span>
-          </div>
-          <div className="h-1.5 w-full bg-stone-100 rounded-full overflow-hidden">
-              <div className={`h-full rounded-full ${colorClass}`} style={{ width: `${(value / 10) * 100}%` }}></div>
-          </div>
-      </div>
-  );
-
-  const StatBadge = ({ icon: Icon, label, value, sub }: any) => (
-     <div className="flex items-center gap-3 bg-white border border-stone-100 p-3 rounded-xl shadow-sm">
-        <div className="w-8 h-8 rounded-full bg-stone-50 flex items-center justify-center text-stone-400">
-           <Icon className="w-4 h-4" />
-        </div>
-        <div>
-           <div className="text-sm font-bold text-stone-800">{value}</div>
-           <div className="text-[10px] text-stone-400 font-bold uppercase">{label}</div>
-           {sub && <div className="text-[10px] text-stone-300">{sub}</div>}
-        </div>
-     </div>
-  );
 
   if (logs.length === 0) {
     return (
@@ -217,7 +243,7 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
                 onClick={downloadCSV}
                 className="flex items-center gap-2 bg-white text-indigo-600 border border-indigo-100 px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-indigo-50 transition-colors shadow-sm"
             >
-                <Download className="w-4 h-4" /> Export Report
+                <Download className="w-4 h-4" /> Export
             </button>
             <div className="relative group">
                 <select 
@@ -235,50 +261,105 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
       </div>
 
       {/* DASHBOARD GRID */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         
-        {/* CARD 1: CURRENT STATUS */}
-        <div className="bg-white p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-stone-100 md:col-span-1 flex flex-col justify-between">
-            <div>
-               <div className="flex justify-between items-start mb-2">
-                 <h3 className="text-stone-500 font-bold text-sm">Current Dose</h3>
-                 <div className="p-1.5 bg-teal-50 rounded-lg text-teal-600">
-                   <Pill className="w-4 h-4" />
-                 </div>
-               </div>
-               <div className="flex items-baseline gap-2">
-                 <span className="text-4xl font-bold text-stone-900 tracking-tight">{stats?.currentDose}</span>
-                 <span className="text-stone-400 font-semibold">mg</span>
-               </div>
-            </div>
+        {/* HERO CARD: WELLNESS SCORE */}
+        <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 p-6 rounded-3xl shadow-lg shadow-indigo-200 md:col-span-2 text-white relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-white blur-3xl opacity-10 -mr-16 -mt-16 pointer-events-none" />
             
-            <div className="mt-8">
-               <div className="h-16 w-full -mx-2">
+            <div className="flex justify-between items-start relative z-10">
+                <div>
+                    <h3 className="text-indigo-100 font-bold text-sm flex items-center gap-2">
+                        <Sparkles className="w-4 h-4" /> Wellness Score
+                    </h3>
+                    <div className="mt-2 flex items-baseline gap-2">
+                        <span className="text-5xl font-black tracking-tighter">{stats?.wellnessScore}</span>
+                        <span className="text-indigo-200 font-bold">/100</span>
+                    </div>
+                </div>
+                <div className="text-right">
+                    <div className="bg-white/20 backdrop-blur-md rounded-lg px-3 py-1 text-xs font-bold inline-flex items-center gap-1">
+                        <Pill className="w-3 h-3" /> {stats?.currentDose}mg
+                    </div>
+                </div>
+            </div>
+
+            <div className="mt-8 h-24 w-full -mx-2 -mb-2">
                  <ResponsiveContainer width="100%" height="100%">
-                   <AreaChart data={chartData.slice(-10)}>
+                   <AreaChart data={stats?.wellnessTrend.slice(-14)}>
                      <defs>
-                       <linearGradient id="doseGradient" x1="0" y1="0" x2="0" y2="1">
-                         <stop offset="5%" stopColor="#14b8a6" stopOpacity={0.3}/>
-                         <stop offset="95%" stopColor="#14b8a6" stopOpacity={0}/>
+                       <linearGradient id="scoreGradient" x1="0" y1="0" x2="0" y2="1">
+                         <stop offset="5%" stopColor="#fff" stopOpacity={0.4}/>
+                         <stop offset="95%" stopColor="#fff" stopOpacity={0}/>
                        </linearGradient>
                      </defs>
-                     <Area type="monotone" dataKey="lDose" stroke="#14b8a6" strokeWidth={2} fill="url(#doseGradient)" />
+                     <Area type="monotone" dataKey="score" stroke="#fff" strokeWidth={3} fill="url(#scoreGradient)" />
                    </AreaChart>
                  </ResponsiveContainer>
-               </div>
             </div>
         </div>
 
-        {/* CARD 2: MAIN CHART */}
-        <div className="bg-white p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-stone-100 md:col-span-2">
+        {/* CARD: CALENDAR HEATMAP */}
+        <div className="bg-white p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-stone-100 md:col-span-1 flex flex-col">
+            <h3 className="text-stone-800 font-bold text-sm mb-4">Consistency</h3>
+            <div className="flex-1 grid grid-cols-7 gap-1.5 content-start">
+                {heatmapData.map((d, i) => (
+                    <div 
+                        key={i} 
+                        className={`aspect-square rounded-md transition-all hover:scale-110 ${
+                            d.score === null ? 'bg-stone-100' :
+                            d.score > 80 ? 'bg-emerald-400' :
+                            d.score > 60 ? 'bg-emerald-300' :
+                            d.score > 40 ? 'bg-yellow-300' :
+                            'bg-red-300'
+                        }`}
+                        title={`${d.date}: ${d.score ?? 'No Log'}`}
+                    />
+                ))}
+            </div>
+            <div className="mt-3 flex justify-between text-[10px] text-stone-400 font-bold uppercase">
+                <span>30 Days Ago</span>
+                <span>Today</span>
+            </div>
+        </div>
+
+        {/* CARD: INSIGHTS */}
+        <div className="bg-white p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-stone-100 md:col-span-1 overflow-hidden">
+            <h3 className="text-stone-800 font-bold text-sm mb-4 flex items-center gap-2">
+                <Activity className="w-4 h-4 text-orange-500" /> Insights
+            </h3>
+            <div className="space-y-3">
+                {stats?.correlations && stats.correlations.length > 0 ? (
+                    stats.correlations.map((c, i) => (
+                        <div key={i} className="flex items-start gap-3 p-3 bg-stone-50 rounded-xl border border-stone-100">
+                             <div className={`p-1.5 rounded-lg shrink-0 ${c!.diff > 0 ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+                                 {c!.diff > 0 ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
+                             </div>
+                             <div>
+                                 <div className="text-xs text-stone-500 leading-tight">
+                                    <span className="font-bold text-stone-800">{c!.factor.label}</span> makes you feel <span className={`font-bold ${c!.diff > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{Math.abs(Math.round(c!.diff))}% {c!.diff > 0 ? 'better' : 'worse'}</span>.
+                                 </div>
+                             </div>
+                        </div>
+                    ))
+                ) : (
+                    <div className="text-center py-4 text-xs text-stone-400">
+                        Log more factors to see what affects your mood.
+                    </div>
+                )}
+            </div>
+        </div>
+
+        {/* CARD: MAIN CHART */}
+        <div className="bg-white p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-stone-100 md:col-span-4">
            <div className="flex items-center justify-between mb-4">
               <div>
                  <h3 className="text-lg font-bold text-stone-800">Symptom Trends</h3>
-                 <p className="text-xs font-medium text-stone-400 mt-0.5">Correlation between Sleep, Anxiety, Mood & Depression</p>
+                 <p className="text-xs font-medium text-stone-400 mt-0.5">Correlation between Sleep, Anxiety, Mood & Energy</p>
               </div>
            </div>
 
-           <div className="h-[250px] w-full">
+           <div className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                  <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -293,7 +374,7 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
                        axisLine={false}
                        tickLine={false}
                        tick={{fill: '#cbd5e1', fontSize: 11, fontWeight: 600}}
-                       domain={[0, 12]}
+                       domain={[0, 10]}
                     />
                     <Tooltip content={<CustomTooltip />} />
                     <Legend 
@@ -302,10 +383,10 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
                       wrapperStyle={{paddingTop: '20px', fontSize: '11px', fontWeight: 'bold'}}
                     />
                     
-                    <Line type="monotone" dataKey="sleepHrs" name="Sleep (hrs)" stroke="#3b82f6" strokeWidth={3} dot={false} strokeDasharray="4 4" />
-                    <Line type="monotone" dataKey="anxietyLevel" name="Anxiety (1-10)" stroke="#14b8a6" strokeWidth={3} dot={false} />
-                    <Line type="monotone" dataKey="moodLevel" name="Mood (1-10)" stroke="#f59e0b" strokeWidth={3} dot={false} />
-                    <Line type="monotone" dataKey="depressionLevel" name="Depression (1-10)" stroke="#64748b" strokeWidth={3} dot={false} />
+                    <Line type="monotone" dataKey="sleepHrs" name="Sleep (hrs)" stroke="#3b82f6" strokeWidth={2} dot={false} strokeDasharray="4 4" />
+                    <Line type="monotone" dataKey="anxietyLevel" name="Anxiety" stroke="#14b8a6" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="moodLevel" name="Mood" stroke="#f59e0b" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="energyLevel" name="Energy" stroke="#8b5cf6" strokeWidth={2} dot={false} />
                  </LineChart>
               </ResponsiveContainer>
            </div>
@@ -329,14 +410,15 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
                 <th className="py-4 px-6 text-[11px] font-bold text-stone-400 uppercase tracking-wider w-[40px]"></th>
                 <th className="py-4 px-2 text-[11px] font-bold text-stone-400 uppercase tracking-wider">Date</th>
                 <th className="py-4 px-2 text-[11px] font-bold text-stone-400 uppercase tracking-wider">Dose</th>
-                <th className="py-4 px-2 text-[11px] font-bold text-stone-400 uppercase tracking-wider">Sleep</th>
-                <th className="py-4 px-2 text-[11px] font-bold text-stone-400 uppercase tracking-wider hidden sm:table-cell">Wellness</th>
+                <th className="py-4 px-2 text-[11px] font-bold text-stone-400 uppercase tracking-wider">Score</th>
+                <th className="py-4 px-2 text-[11px] font-bold text-stone-400 uppercase tracking-wider hidden sm:table-cell">Factors</th>
                 <th className="py-4 px-6 text-[11px] font-bold text-stone-400 uppercase tracking-wider text-right">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-50">
               {sortedLogs.slice().reverse().map((log, i) => {
                  const isOpen = expandedRow === i;
+                 const score = calculateWellnessScore(log);
                  return (
                   <React.Fragment key={i}>
                     <tr 
@@ -362,18 +444,25 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
                         </span>
                       </td>
                       <td className="py-4 px-2">
-                        <span className="text-sm font-bold text-stone-700">{log.sleepHrs}h</span>
+                        <span className={`text-sm font-bold ${score > 70 ? 'text-emerald-600' : score < 40 ? 'text-red-500' : 'text-stone-700'}`}>
+                            {score}
+                        </span>
                       </td>
                       <td className="py-4 px-2 hidden sm:table-cell">
-                        <div className="flex gap-1">
-                           <div className={`w-2 h-2 rounded-full ${log.anxietyLevel > 7 ? 'bg-red-400' : 'bg-teal-400'}`} title="Anxiety" />
-                           <div className={`w-2 h-2 rounded-full ${log.moodLevel < 4 ? 'bg-orange-400' : 'bg-amber-400'}`} title="Mood" />
-                           <div className={`w-2 h-2 rounded-full ${log.depressionLevel && log.depressionLevel > 5 ? 'bg-slate-400' : 'bg-slate-200'}`} title="Depression" />
+                        <div className="flex gap-1 flex-wrap">
+                           {log.factors && log.factors.slice(0, 3).map(f => (
+                               <span key={f} className="text-[10px] bg-stone-100 text-stone-500 px-1.5 py-0.5 rounded capitalize">
+                                   {TRACKING_FACTORS.find(tf => tf.id === f)?.label || f}
+                               </span>
+                           ))}
+                           {log.factors && log.factors.length > 3 && (
+                               <span className="text-[10px] text-stone-400">+{log.factors.length - 3}</span>
+                           )}
                         </div>
                       </td>
                       <td className="py-4 px-6 text-right">
                          <span className="text-xs font-bold text-indigo-600 hover:underline">
-                            {isOpen ? 'Close' : 'View Details'}
+                            {isOpen ? 'Close' : 'View'}
                          </span>
                       </td>
                     </tr>
@@ -383,78 +472,47 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
                        <tr>
                           <td colSpan={6} className="p-0 border-b border-stone-100">
                              <div className="bg-stone-50/50 p-6 md:p-8 animate-in fade-in slide-in-from-top-2">
-                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                                    
-                                   {/* Column 1: Vitals & Physical */}
-                                   <div className="space-y-6">
-                                      <h4 className="text-xs font-bold text-stone-400 uppercase tracking-wider flex items-center gap-2">
-                                        <HeartPulse className="w-4 h-4" /> Vitals & Physical
-                                      </h4>
-                                      <div className="grid grid-cols-2 gap-4">
-                                          <div className="bg-white p-4 rounded-xl border border-stone-100 shadow-sm">
-                                             <div className="text-[10px] text-stone-400 font-bold uppercase mb-2">Morning BP</div>
-                                             {log.bpMorningSys ? (
-                                                <div className="text-xl font-mono font-bold text-stone-800">
-                                                   {log.bpMorningSys}/{log.bpMorningDia} <span className="text-sm text-stone-400 font-sans ml-1">{log.bpMorningPulse}bpm</span>
-                                                </div>
-                                             ) : <span className="text-stone-300">-</span>}
+                                   {/* Column 1: Metrics */}
+                                   <div className="space-y-4">
+                                      <h4 className="text-xs font-bold text-stone-400 uppercase tracking-wider">Metrics</h4>
+                                      <div className="grid grid-cols-2 gap-3">
+                                          <div className="bg-white p-3 rounded-xl border border-stone-100">
+                                              <span className="text-[10px] text-stone-400 font-bold uppercase block">Sleep</span>
+                                              <span className="text-lg font-bold text-stone-800">{log.sleepHrs}h</span>
                                           </div>
-                                          <div className="bg-white p-4 rounded-xl border border-stone-100 shadow-sm">
-                                             <div className="text-[10px] text-stone-400 font-bold uppercase mb-2">Night BP</div>
-                                             {log.bpNightSys ? (
-                                                <div className="text-xl font-mono font-bold text-stone-800">
-                                                   {log.bpNightSys}/{log.bpNightDia} <span className="text-sm text-stone-400 font-sans ml-1">{log.bpNightPulse}bpm</span>
-                                                </div>
-                                             ) : <span className="text-stone-300">-</span>}
+                                          <div className="bg-white p-3 rounded-xl border border-stone-100">
+                                              <span className="text-[10px] text-stone-400 font-bold uppercase block">Energy</span>
+                                              <span className="text-lg font-bold text-stone-800">{log.energyLevel || 5}/10</span>
                                           </div>
-                                      </div>
-                                      
-                                      <div className="bg-white p-4 rounded-xl border border-stone-100 shadow-sm space-y-3">
-                                          <div className="flex justify-between items-center">
-                                             <span className="text-xs font-bold text-stone-500">Total Sleep</span>
-                                             <span className="text-sm font-bold text-indigo-900">{log.sleepHrs} hrs</span>
+                                          <div className="bg-white p-3 rounded-xl border border-stone-100">
+                                              <span className="text-[10px] text-stone-400 font-bold uppercase block">Anxiety</span>
+                                              <span className="text-lg font-bold text-stone-800">{log.anxietyLevel}/10</span>
                                           </div>
-                                          <div className="flex justify-between items-center border-t border-stone-50 pt-3">
-                                             <span className="text-xs font-bold text-stone-500">Nap Duration</span>
-                                             <span className="text-sm font-bold text-stone-700">{log.napMinutes || 0} mins</span>
+                                          <div className="bg-white p-3 rounded-xl border border-stone-100">
+                                              <span className="text-[10px] text-stone-400 font-bold uppercase block">Mood</span>
+                                              <span className="text-lg font-bold text-stone-800">{log.moodLevel}/10</span>
                                           </div>
                                       </div>
                                    </div>
 
-                                   {/* Column 2: Mental & Habits */}
-                                   <div className="space-y-6">
-                                      <h4 className="text-xs font-bold text-stone-400 uppercase tracking-wider flex items-center gap-2">
-                                        <Activity className="w-4 h-4" /> Mental & Habits
-                                      </h4>
-                                      <div className="bg-white p-5 rounded-xl border border-stone-100 shadow-sm space-y-5">
-                                          <RatingBar label="Anxiety" value={log.anxietyLevel} colorClass="bg-teal-400" icon={Zap} />
-                                          <RatingBar label="Mood" value={log.moodLevel} colorClass="bg-amber-400" icon={Smile} />
-                                          <RatingBar label="Depression" value={log.depressionLevel || 1} colorClass="bg-slate-400" icon={CloudRain} />
-                                          <RatingBar label="Smoking / Cravings" value={log.smokingLevel || 1} colorClass="bg-orange-500" icon={Flame} />
-                                      </div>
-                                      <div className="flex gap-2">
-                                         <div className={`flex-1 p-3 rounded-lg border text-center ${log.brainZapLevel && log.brainZapLevel > 0 ? 'bg-blue-50 border-blue-100' : 'bg-white border-stone-100'}`}>
-                                            <div className="text-[10px] text-stone-400 font-bold uppercase">Brain Zaps</div>
-                                            <div className="font-bold text-stone-800 mt-1">
-                                               {['None', 'Mild', 'Mod', 'Severe'][log.brainZapLevel || 0]}
+                                   {/* Column 2: Journal & Factors */}
+                                   <div className="space-y-4">
+                                      <h4 className="text-xs font-bold text-stone-400 uppercase tracking-wider">Notes & Factors</h4>
+                                      <div className="bg-white p-4 rounded-xl border border-stone-100 shadow-sm h-full">
+                                         {log.factors && log.factors.length > 0 && (
+                                            <div className="flex flex-wrap gap-2 mb-4">
+                                                {log.factors.map(f => (
+                                                    <span key={f} className="text-xs font-bold bg-indigo-50 text-indigo-700 px-2 py-1 rounded-lg">
+                                                        {TRACKING_FACTORS.find(tf => tf.id === f)?.label || f}
+                                                    </span>
+                                                ))}
                                             </div>
-                                         </div>
-                                      </div>
-                                   </div>
-
-                                   {/* Column 3: Journal */}
-                                   <div className="space-y-6">
-                                      <h4 className="text-xs font-bold text-stone-400 uppercase tracking-wider flex items-center gap-2">
-                                        <FileText className="w-4 h-4" /> Daily Notes
-                                      </h4>
-                                      <div className="bg-white p-5 rounded-xl border border-stone-100 shadow-sm h-full min-h-[200px]">
-                                         {log.dailyNote ? (
-                                            <p className="text-sm text-stone-600 leading-relaxed whitespace-pre-wrap font-medium">
-                                               {log.dailyNote}
-                                            </p>
-                                         ) : (
-                                            <p className="text-stone-300 text-sm italic">No notes recorded for this day.</p>
                                          )}
+                                         <p className="text-sm text-stone-600 leading-relaxed whitespace-pre-wrap font-medium">
+                                            {log.dailyNote || "No written notes."}
+                                         </p>
                                       </div>
                                    </div>
 

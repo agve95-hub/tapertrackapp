@@ -1,3 +1,4 @@
+
 import { ScheduleItem, TaperStep } from "./types";
 
 export const TAPER_SCHEDULE: TaperStep[] = [
@@ -86,4 +87,16 @@ export const DAILY_SCHEDULE: ScheduleItem[] = [
     ],
     requiresBP: true
   }
+];
+
+export const TRACKING_FACTORS = [
+  { id: 'exercise', label: 'Exercise', type: 'positive' },
+  { id: 'outdoors', label: 'Outdoors', type: 'positive' },
+  { id: 'social', label: 'Socializing', type: 'positive' },
+  { id: 'meditation', label: 'Meditation', type: 'positive' },
+  { id: 'caffeine', label: 'Caffeine', type: 'negative' },
+  { id: 'alcohol', label: 'Alcohol', type: 'negative' },
+  { id: 'sugar', label: 'High Sugar', type: 'negative' },
+  { id: 'stress', label: 'High Stress', type: 'negative' },
+  { id: 'screens', label: 'Late Screens', type: 'negative' },
 ];

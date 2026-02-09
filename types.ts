@@ -59,6 +59,12 @@ export interface UserSettings {
   notificationTime: string; // "08:00"
 }
 
+export interface InventoryData {
+  totalMg: number;
+  lastRefillDate: string;
+  lowStockThresholdDays: number;
+}
+
 export interface AuthResponse {
     token: string;
     username: string;

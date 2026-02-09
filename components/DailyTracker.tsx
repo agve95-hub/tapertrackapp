@@ -1,13 +1,16 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { DAILY_SCHEDULE, TAPER_SCHEDULE } from '../constants';
-import { DailyLogEntry } from '../types';
-import { Check, Clock, Sun, Moon, Sunrise, Sunset, Activity, AlertCircle, Zap, CloudRain, BatteryCharging, PenLine, Smile, HeartPulse, CheckCircle2, RotateCcw, Flame } from 'lucide-react';
+import { DailyLogEntry, InventoryData } from '../types';
+import { Check, Clock, Sun, Moon, Sunrise, Sunset, Activity, AlertCircle, Zap, CloudRain, BatteryCharging, PenLine, Smile, HeartPulse, CheckCircle2, RotateCcw, Flame, Package } from 'lucide-react';
 
 interface DailyTrackerProps {
   currentDate: string;
   logData: DailyLogEntry | undefined;
   onUpdateLog: (data: DailyLogEntry) => void;
+  onOpenInventory?: () => void;
+  inventory?: InventoryData;
 }
 
 // Helper: Custom Premium Slider
@@ -60,7 +63,7 @@ const TouchSlider = ({
   );
 };
 
-const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpdateLog }) => {
+const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpdateLog, onOpenInventory, inventory }) => {
   // Determine current time period for auto-focus
   const getCurrentPeriodId = () => {
     const hour = new Date().getHours();
@@ -188,6 +191,7 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
   };
 
   const adherence = getProgress();
+  const daysRemaining = (inventory && formData.lDose > 0) ? Math.floor(inventory.totalMg / formData.lDose) : 0;
 
   return (
     <div className="space-y-8 pb-24 relative">
@@ -200,6 +204,9 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
                </div>
                <h2 className="text-xl font-bold text-stone-800">Day Completed!</h2>
                <p className="text-stone-500 text-sm mt-1">Great job tracking your progress today.</p>
+               <div className="mt-4 px-4 py-2 bg-stone-50 rounded-lg text-xs font-bold text-stone-500">
+                  Inventory updated
+               </div>
             </div>
          </div>
       )}
@@ -246,6 +253,33 @@ const DailyTracker: React.FC<DailyTrackerProps> = ({ currentDate, logData, onUpd
             style={{ width: `${adherence}%` }}
           />
         </div>
+      </div>
+      
+      {/* Inventory Banner for Mobile */}
+      <div className="md:hidden">
+          <button 
+            onClick={onOpenInventory}
+            className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all active:scale-95 ${
+               daysRemaining < 7 ? 'bg-amber-50 border-amber-200' : 'bg-white border-stone-200'
+            }`}
+          >
+             <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-lg ${daysRemaining < 7 ? 'bg-amber-100 text-amber-600' : 'bg-stone-100 text-stone-500'}`}>
+                   <Package className="w-4 h-4" />
+                </div>
+                <div className="text-left">
+                   <div className={`text-xs font-bold uppercase ${daysRemaining < 7 ? 'text-amber-800' : 'text-stone-500'}`}>
+                      Estimated Supply
+                   </div>
+                   <div className={`text-sm font-bold ${daysRemaining < 7 ? 'text-amber-900' : 'text-stone-800'}`}>
+                      {daysRemaining} Days Remaining
+                   </div>
+                </div>
+             </div>
+             <div className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg">
+                Manage
+             </div>
+          </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">

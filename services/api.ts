@@ -1,4 +1,4 @@
-import { DailyLogEntry, TaperStep, UserSettings, AuthResponse } from '../types';
+import { DailyLogEntry, TaperStep, UserSettings, AuthResponse, InventoryData } from '../types';
 
 // Use ABSOLUTE path.
 const API_BASE = '/api/index.php';
@@ -141,7 +141,8 @@ export const api = {
       logs: DailyLogEntry[],
       schedule: TaperStep[],
       startDate: string,
-      settings: UserSettings
+      settings: UserSettings,
+      inventory: InventoryData
     },
     token: string
   ) {

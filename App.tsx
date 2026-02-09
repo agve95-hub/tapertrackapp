@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ViewState, DailyLogEntry, TaperStep, UserSettings, AuthResponse } from './types';
+import { ViewState, DailyLogEntry, TaperStep, UserSettings, AuthResponse, InventoryData } from './types';
 import { TAPER_SCHEDULE } from './constants';
 import DailyTracker from './components/DailyTracker';
 import TaperGuide from './components/TaperGuide';
@@ -7,8 +7,9 @@ import HistoryAnalytics from './components/HistoryAnalytics';
 import LoginScreen from './components/LoginScreen'; // Local PIN
 import AuthScreen from './components/AuthScreen'; // Server Login
 import SettingsModal from './components/SettingsModal';
+import InventoryModal from './components/InventoryModal'; // New Component
 import { api } from './services/api';
-import { LayoutDashboard, Activity, BookOpen, ChevronLeft, ChevronRight, Settings, Cloud, CloudOff, RefreshCw, LogOut } from 'lucide-react';
+import { LayoutDashboard, Activity, BookOpen, ChevronLeft, ChevronRight, Settings, Cloud, CloudOff, RefreshCw, LogOut, Package } from 'lucide-react';
 
 const STORAGE_KEY = 'taper_track_data_v1';
 const SCHEDULE_KEY = 'taper_schedule_custom_v1';
@@ -30,6 +31,13 @@ const App: React.FC = () => {
   const [taperSchedule, setTaperSchedule] = useState<TaperStep[]>(TAPER_SCHEDULE);
   const [protocolStartDate, setProtocolStartDate] = useState<string>('');
   
+  // Inventory State
+  const [inventory, setInventory] = useState<InventoryData>({
+    totalMg: 0,
+    lastRefillDate: new Date().toISOString().split('T')[0],
+    lowStockThresholdDays: 7
+  });
+  
   // Settings & App Lock
   const [userSettings, setUserSettings] = useState<UserSettings>({
     isPinEnabled: false,
@@ -39,6 +47,7 @@ const App: React.FC = () => {
   });
   const [isAppLocked, setIsAppLocked] = useState(false); // Default false, only locks if PIN set
   const [showSettings, setShowSettings] = useState(false);
+  const [showInventory, setShowInventory] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   
   // Sync State
@@ -73,9 +82,8 @@ const App: React.FC = () => {
            if (cloudData.logs) setLogs(cloudData.logs);
            if (cloudData.schedule) setTaperSchedule(cloudData.schedule);
            if (cloudData.startDate) setProtocolStartDate(cloudData.startDate);
+           if (cloudData.inventory) setInventory(cloudData.inventory);
            if (cloudData.settings) {
-               // Merge settings (prefer cloud, but keep local pin enabled state if cloud is empty?)
-               // Actually, for simplicity, cloud overwrites local settings if they exist
                setUserSettings(cloudData.settings);
            }
            setSyncStatus('success');
@@ -92,7 +100,6 @@ const App: React.FC = () => {
   useEffect(() => {
     if (isLoaded && authToken) {
       // 1. Save critical keys locally for offline capability
-      // (Note: With multi-user, local storage might be an issue if sharing device, but acceptable for this scope)
       localStorage.setItem(SETTINGS_KEY, JSON.stringify(userSettings));
 
       // 2. Cloud Save
@@ -104,13 +111,14 @@ const App: React.FC = () => {
           logs,
           schedule: taperSchedule,
           startDate: protocolStartDate,
-          settings: userSettings
+          settings: userSettings,
+          inventory
         }, authToken);
         
         setSyncStatus(success ? 'success' : 'error');
       }, 2000);
     }
-  }, [logs, taperSchedule, protocolStartDate, userSettings, isLoaded, authToken]);
+  }, [logs, taperSchedule, protocolStartDate, userSettings, inventory, isLoaded, authToken]);
 
   // --- AUTH HANDLERS ---
   const handleAuthSuccess = (auth: AuthResponse) => {
@@ -154,6 +162,30 @@ const App: React.FC = () => {
 
   // --- HELPERS ---
   const handleUpdateLog = (updatedEntry: DailyLogEntry) => {
+    
+    // Inventory Logic: Handle Deduction AND Refund
+    const existingEntry = logs.find(l => l.date === updatedEntry.date);
+    const wasComplete = existingEntry?.isComplete || false;
+    const isNowComplete = updatedEntry.isComplete || false;
+
+    if (!wasComplete && isNowComplete) {
+       // Case 1: Marking as Complete -> Deduct Inventory
+       const dose = updatedEntry.lDose;
+       if (inventory.totalMg > 0) {
+          setInventory(prev => ({
+             ...prev,
+             totalMg: Math.max(0, prev.totalMg - dose)
+          }));
+       }
+    } else if (wasComplete && !isNowComplete) {
+       // Case 2: Unmarking as Complete -> Refund Inventory
+       const dose = updatedEntry.lDose;
+       setInventory(prev => ({
+           ...prev,
+           totalMg: prev.totalMg + dose
+       }));
+    }
+
     setLogs(prev => {
       const existingIndex = prev.findIndex(l => l.date === updatedEntry.date);
       if (existingIndex >= 0) {
@@ -249,6 +281,14 @@ const App: React.FC = () => {
         settings={userSettings}
         onSave={setUserSettings}
       />
+      
+      <InventoryModal
+        isOpen={showInventory}
+        onClose={() => setShowInventory(false)}
+        inventory={inventory}
+        onSave={setInventory}
+        currentDose={logs.length > 0 ? logs[logs.length - 1].lDose : 5}
+      />
 
       {/* Header */}
       <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-stone-100 transition-all">
@@ -267,8 +307,21 @@ const App: React.FC = () => {
             </div>
             </div>
             
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
             {currentView === ViewState.TODAY && (
+                <>
+                <button 
+                  onClick={() => setShowInventory(true)}
+                  className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-bold transition-all active:scale-95 ${
+                    (inventory.totalMg / (logs.length > 0 ? logs[logs.length - 1].lDose : 5)) < 7 
+                      ? 'bg-amber-50 text-amber-700 border-amber-200' 
+                      : 'bg-stone-50 text-stone-600 border-stone-200 hover:border-indigo-200 hover:text-indigo-600'
+                  }`}
+                >
+                  <Package className="w-3.5 h-3.5" />
+                  <span>{Math.floor(inventory.totalMg)}mg</span>
+                </button>
+
                 <div className="flex items-center bg-stone-100/50 rounded-full p-1 border border-stone-200/60 shadow-inner hidden sm:flex">
                     <button onClick={() => changeDate(-1)} className="p-2 hover:bg-white rounded-full transition-all shadow-sm hover:shadow text-stone-500 hover:text-indigo-600 active:scale-95">
                     <ChevronLeft className="w-4 h-4" />
@@ -284,6 +337,7 @@ const App: React.FC = () => {
                     <ChevronRight className="w-4 h-4" />
                     </button>
                 </div>
+                </>
                 )}
                 
                 <button 
@@ -312,6 +366,8 @@ const App: React.FC = () => {
               currentDate={selectedDate} 
               logData={getLogContext(selectedDate)}
               onUpdateLog={handleUpdateLog}
+              onOpenInventory={() => setShowInventory(true)} // Pass handler
+              inventory={inventory} // Pass data
             />
           )}
           {currentView === ViewState.TAPER && (

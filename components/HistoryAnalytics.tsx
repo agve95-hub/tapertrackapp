@@ -1,4 +1,5 @@
 
+
 import React, { useMemo, useState } from 'react';
 import { DailyLogEntry } from '../types';
 import { 
@@ -13,7 +14,7 @@ import {
   ResponsiveContainer,
   Legend
 } from 'recharts';
-import { Calendar, FileText, ChevronDown, Activity, TrendingDown, TrendingUp, Minus, Pill, Moon, Zap, Smile, HeartPulse, CloudRain, BatteryCharging, Flame, ChevronRight, ChevronUp } from 'lucide-react';
+import { Calendar, FileText, ChevronDown, Activity, TrendingDown, TrendingUp, Minus, Pill, Moon, Zap, Smile, HeartPulse, CloudRain, BatteryCharging, Flame, ChevronRight, ChevronUp, Download } from 'lucide-react';
 
 interface HistoryAnalyticsProps {
   logs: DailyLogEntry[];
@@ -107,6 +108,39 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
     });
   }, [logs, viewMode, sortedLogs]);
 
+  const downloadCSV = () => {
+    if (logs.length === 0) return;
+
+    // Headers
+    const headers = ['Date', 'Dose (mg)', 'Sleep (hrs)', 'Anxiety (1-10)', 'Mood (1-10)', 'Depression (1-10)', 'Notes'];
+    
+    // Rows
+    const rows = sortedLogs.map(log => [
+        log.date,
+        log.lDose,
+        log.sleepHrs,
+        log.anxietyLevel,
+        log.moodLevel,
+        log.depressionLevel || '',
+        `"${(log.dailyNote || '').replace(/"/g, '""')}"` // Escape quotes in notes
+    ]);
+
+    const csvContent = [
+        headers.join(','),
+        ...rows.map(e => e.join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `taper_report_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
@@ -172,23 +206,31 @@ const HistoryAnalytics: React.FC<HistoryAnalyticsProps> = ({ logs }) => {
     <div className="space-y-8 pb-24 font-sans">
       
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-stone-900 tracking-tight">Analytics</h2>
           <p className="text-stone-500 text-sm font-medium">Overview of your wellness journey</p>
         </div>
         
-        <div className="relative group">
-            <select 
-              value={viewMode}
-              onChange={(e) => setViewMode(e.target.value as ViewMode)}
-              className="appearance-none bg-white hover:bg-stone-50 transition-colors pl-4 pr-10 py-2.5 rounded-xl border border-stone-200 text-sm font-bold text-stone-700 outline-none cursor-pointer focus:ring-2 focus:ring-teal-100 shadow-sm"
+        <div className="flex items-center gap-2">
+            <button 
+                onClick={downloadCSV}
+                className="flex items-center gap-2 bg-white text-indigo-600 border border-indigo-100 px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-indigo-50 transition-colors shadow-sm"
             >
-              <option value="daily">Daily View</option>
-              <option value="weekly">Weekly Avg</option>
-              <option value="monthly">Monthly Avg</option>
-            </select>
-            <ChevronDown className="w-4 h-4 text-stone-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Download className="w-4 h-4" /> Export Report
+            </button>
+            <div className="relative group">
+                <select 
+                value={viewMode}
+                onChange={(e) => setViewMode(e.target.value as ViewMode)}
+                className="appearance-none bg-white hover:bg-stone-50 transition-colors pl-4 pr-10 py-2.5 rounded-xl border border-stone-200 text-sm font-bold text-stone-700 outline-none cursor-pointer focus:ring-2 focus:ring-teal-100 shadow-sm"
+                >
+                <option value="daily">Daily View</option>
+                <option value="weekly">Weekly Avg</option>
+                <option value="monthly">Monthly Avg</option>
+                </select>
+                <ChevronDown className="w-4 h-4 text-stone-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
          </div>
       </div>
 
